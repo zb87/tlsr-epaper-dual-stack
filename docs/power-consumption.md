@@ -203,19 +203,19 @@ When the coordinator or parent router becomes unreachable (either after **3 cons
    - A full 16-channel IEEE 802.15.4 rejoin scan (`0x07FFF800`, channels 11–26) dwells ~138 ms per channel = **~2,212 ms** in RX (~28.8 mC per scan).
    - Because coordinators rarely change channels during a brief outage, the initial `PARENT_LOST` rejoin and **2 out of every 3** backoff attempts (`(s_rejoin_attempts % 3) != 0`) scan **only the last known operating channel** (`1UL << ch`, ~138 ms active RX = **~1.8 mC**, a **16× energy reduction**).
    - Every 3rd attempt (attempts 3, 6, 9, 12, 15) scans the full 16-channel mask (`zb_apsChannelMaskGet()`) in case the coordinator migrated to a new channel.
-3. **6-Tier Exponential Backoff Schedule (15 Attempts Total, ~5h 02m Span):**
+3. **6-Tier Exponential Backoff Schedule (85 Attempts Total, ~3-Day Window):**
    - Between rejoin attempts, [`zb_pm_task()`](../src/zigbee/zb_app.c) puts the MCU into `DEEPSLEEP_MODE_RET_SRAM_LOW32K` (**4.0 µA**) for the exact duration of `s_rejoin_timer_evt`:
 
 | Backoff Tier | Attempt Numbers | Sleep Interval Between Attempts | Channel Scan Mode | Cumulative Time Elapsed |
 | :--- | :--- | :--- | :--- | :--- |
 | **Immediate** | Initial (`PARENT_LOST`) | 0 s (immediate) | Single channel (known `ch`) | 0 s |
-| **Tier 1** | Attempts 1 – 3 | **15 seconds** | Att 1–2: Single-ch; Att 3: Full 16-ch | 45 s |
-| **Tier 2** | Attempts 4 – 6 | **30 seconds** | Att 4–5: Single-ch; Att 6: Full 16-ch | 2m 15s |
-| **Tier 3** | Attempts 7 – 9 | **60 seconds (1 min)** | Att 7–8: Single-ch; Att 9: Full 16-ch | 5m 15s |
-| **Tier 4** | Attempts 10 – 11 | **300 seconds (5 min)** | Att 10–11: Single-ch | 15m 15s |
-| **Tier 5** | Attempts 12 – 13 | **900 seconds (15 min)** | Att 12: Full 16-ch; Att 13: Single-ch | 45m 15s |
-| **Tier 6** | Attempts 14 – 15 | **3600 seconds (1 hour)** | Att 14: Single-ch; Att 15: Full 16-ch | 2h 45m 15s |
-| **Battery Saver** | Exhausted (> 15) | **3600 seconds (1 hour) deep sleep** | Radio Off (wakes on NFC tap) | Indefinite (**4.0 µA**) |
+| **Tier 1** | Attempts 1 – 2 | **15 seconds** | Single-ch | 30 s |
+| **Tier 2** | Attempts 3 – 4 | **30 seconds** | Att 3: Full 16-ch; Att 4: Single-ch | 1m 30s |
+| **Tier 3** | Attempts 5 – 6 | **60 seconds (1 min)** | Att 5: Single-ch; Att 6: Full 16-ch | 3m 30s |
+| **Tier 4** | Attempts 7 – 9 | **300 seconds (5 min)** | Att 7–8: Single-ch; Att 9: Full 16-ch | 18m 30s |
+| **Tier 5** | Attempts 10 – 12 | **900 seconds (15 min)** | Att 10–11: Single-ch; Att 12: Full 16-ch | 1h 03m 30s |
+| **Tier 6** | Attempts 13 – 85 | **3600 seconds (1 hour)** | 2 Single-ch : 1 Full 16-ch alternating | ~74 hours (~3.08 days) |
+| **Battery Saver** | Exhausted (> 85) | **Indefinite Deep Sleep** | Radio Off (wakes on NFC tap) | Indefinite (**4.0 µA**) |
 
 4. **Routine Rejoin vs. Initial Pairing Fast-Poll Differentiation:**
    - When `BDB_COMMISSION_STA_SUCCESS` fires after a routine rejoin (`was_pairing == false`), [`zb_bdbCommissioningCb()`](../src/zigbee/zb_appCb.c) immediately restores `zb_setPollRate(2000)` and resumes normal 2.0s deep retention sleep without triggering a 60-second fast-poll interview window or LED blink.
@@ -318,7 +318,8 @@ Longevity projections are calculated using an 85% usable battery capacity derati
 | **Zigbee 3.0 SED (2.0s Poll)** | **1 per day** | **20.05 µA** | **2.85 years (1,039 days)** | **4.84 years (1,766 days)** |
 | **Zigbee 3.0 SED (2.0s Poll)** | **4 per day** | **24.28 µA** | **2.35 years (858 days)** | **4.00 years (1,459 days)** |
 | **Zigbee 3.0 SED (2.0s Poll)** | **12 per day** | **35.57 µA** | **1.60 years (586 days)** | **2.73 years (995 days)** |
-| **Zigbee Unjoined (1h Battery Saver)** | N/A | **4.00 µA** | **> 10 years** | **> 10 years** |
+| **Zigbee Rejoin Backoff (1h Retry)** | N/A | **7.00 µA** | **8.15 years (2,976 days)** | **13.86 years (5,059 days)** |
+| **Zigbee Battery Saver (Exhausted / Idle)** | N/A | **4.00 µA** | **> 10 years** | **> 10 years** |
 
 ---
 

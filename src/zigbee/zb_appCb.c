@@ -69,6 +69,7 @@ static ev_timer_event_t *s_steer_timer_evt = NULL;
 
 static ev_timer_event_t *s_rejoin_timer_evt = NULL;
 static uint8_t s_rejoin_attempts = 0;
+#define ZB_REJOIN_MAX_ATTEMPTS  85  /* ~3 days total: ~2h initial backoff + 72h (3 days) of 1h retries */
 
 static bool s_zb_interview_active = false;
 static ev_timer_event_t *s_interview_timer_evt = NULL;
@@ -252,23 +253,30 @@ static s32 zb_rejoin_backoff_cb(void *arg) {
     (void)arg;
     s_rejoin_timer_evt = NULL;
 
-    if (zb_isDeviceFactoryNew() || zb_isDeviceJoinedNwk() || s_rejoin_attempts >= 15) {
+    if (zb_isDeviceFactoryNew() || zb_isDeviceJoinedNwk() || s_rejoin_attempts >= ZB_REJOIN_MAX_ATTEMPTS) {
         return -1;
     }
 
     s_rejoin_attempts++;
 
-    bool is_secure = (s_rejoin_attempts <= 2) || (s_rejoin_attempts & 1);
     // Scan single operating channel on 2 out of 3 attempts (~138ms vs 2.21s), full 16-channel scan every 3rd attempt
     bool full_scan = ((s_rejoin_attempts % 3) == 0);
     u32 ch_mask = zb_get_rejoin_channel_mask(full_scan);
 
-    DEBUG_LOG("ZIGBEE", "Rejoin attempt #%u (%s rejoin, channel mask: 0x%08X)",
+    DEBUG_LOG("ZIGBEE", "Rejoin attempt #%u/%u (%s scan, channel mask: 0x%08X)",
               s_rejoin_attempts,
-              is_secure ? "secure" : "insecure",
+              ZB_REJOIN_MAX_ATTEMPTS,
+              full_scan ? "full 16-ch" : "single-ch",
               (unsigned int)ch_mask);
 
-    zb_rejoinSecModeSet(is_secure ? REJOIN_SECURITY : REJOIN_INSECURITY);
+    // Ensure APS authenticated flag is set for Zigbee 3.0 secure rejoin.
+    // In Telink SDK, zb_rejoinSecModeSet(REJOIN_SECURITY) clears bit 0 (aps_use_insecure_join)
+    // but does NOT set bit 1 (aps_authenticated). If aps_authenticated is 0, zdo_nlme_join_confirm
+    // waits 2000ms for a Trust Center Transport Key (which coordinator never sends on secure rejoin)
+    // and times out with 0x8D (ZDO_NOT_AUTHORIZED).
+    APS_IB().aps_authenticated = 1;
+    APS_IB().aps_use_insecure_join = 0;
+    zb_rejoinSecModeSet(REJOIN_SECURITY);
     zb_rejoinReq(ch_mask, g_bdbAttrs.scanDuration);
 
     return -1;
@@ -284,6 +292,8 @@ void zb_start_rejoin(void) {
         s_rejoin_timer_evt = NULL;
     }
     s_rejoin_attempts = 0;
+    APS_IB().aps_authenticated = 1;
+    APS_IB().aps_use_insecure_join = 0;
     zb_rejoinSecModeSet(REJOIN_SECURITY);
     zb_rejoinReq(zb_get_rejoin_channel_mask(false), g_bdbAttrs.scanDuration);
 }
@@ -316,6 +326,8 @@ void zb_bdbInitCb(u8 status, u8 joinedNetwork) {
         DEBUG_LOG("ZIGBEE", "Cold-boot rejoin failed; starting exponential backoff rejoin in 15s");
         zb_stop_periodic_timers();
         s_rejoin_attempts = 0;
+        APS_IB().aps_authenticated = 1;
+        APS_IB().aps_use_insecure_join = 0;
         if (!s_rejoin_timer_evt) {
             s_rejoin_timer_evt = TL_ZB_TIMER_SCHEDULE(zb_rejoin_backoff_cb, NULL, 15 * 1000);
         }
@@ -385,6 +397,8 @@ void zb_bdbCommissioningCb(u8 status, void *arg) {
         }
         s_zb_interview_active = false;
         s_rejoin_attempts = 0;
+        APS_IB().aps_authenticated = 1;
+        APS_IB().aps_use_insecure_join = 0;
         zb_rejoinSecModeSet(REJOIN_SECURITY);
         zb_rejoinReq(zb_get_rejoin_channel_mask(false), g_bdbAttrs.scanDuration);
     } else if (status == BDB_COMMISSION_STA_REJOIN_FAILURE) {
@@ -397,8 +411,9 @@ void zb_bdbCommissioningCb(u8 status, void *arg) {
             s_rejoin_attempts = 0;
             return;
         }
-        if (s_rejoin_attempts >= 15) {
-            DEBUG_LOG("ZIGBEE", "Rejoin retry limit reached (15 attempts); entering battery-saver deep sleep");
+        if (s_rejoin_attempts >= ZB_REJOIN_MAX_ATTEMPTS) {
+            DEBUG_LOG("ZIGBEE", "Rejoin retry limit reached (%u attempts, ~3 days); entering battery-saver deep sleep (wake via NFC)",
+                      s_rejoin_attempts);
             if (s_rejoin_timer_evt) {
                 TL_ZB_TIMER_CANCEL(&s_rejoin_timer_evt);
                 s_rejoin_timer_evt = NULL;
@@ -407,8 +422,8 @@ void zb_bdbCommissioningCb(u8 status, void *arg) {
         }
         if (!s_rejoin_timer_evt) {
             u32 delay_ms = zb_get_rejoin_backoff_ms(s_rejoin_attempts);
-            DEBUG_LOG("ZIGBEE", "BDB Commissioning: REJOIN_FAILURE (attempt %u/15), next retry in %us",
-                      s_rejoin_attempts, (unsigned int)(delay_ms / 1000));
+            DEBUG_LOG("ZIGBEE", "BDB Commissioning: REJOIN_FAILURE (attempt %u/%u), next retry in %us",
+                      s_rejoin_attempts, ZB_REJOIN_MAX_ATTEMPTS, (unsigned int)(delay_ms / 1000));
             s_rejoin_timer_evt = TL_ZB_TIMER_SCHEDULE(zb_rejoin_backoff_cb, NULL, delay_ms);
         }
     } else {

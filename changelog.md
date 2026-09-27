@@ -4,6 +4,22 @@ All notable changes to the TLSR E-Paper Dual-Stack Firmware are documented in th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.0.06] - 2026-09-27
+
+### Fixed
+- **Zigbee Rejoin Failure after Coordinator Downtime (`0x8D` / `ZDO_NOT_AUTHORIZED`)**:
+  - Resolved an issue where the device failed to rejoin the Zigbee network after coordinator downtime and became stuck failing with `status: 0x8D` (`ZDO_NOT_AUTHORIZED`) across retention sleep cycles.
+  - Root cause: Alternating secure and insecure rejoins in [`src/zigbee/zb_appCb.c`](src/zigbee/zb_appCb.c) called `zb_rejoinSecModeSet(REJOIN_INSECURITY)`, which clears `APS_IB().aps_authenticated = 0` in Telink's `libzb_ed.a`. The subsequent call to `zb_rejoinSecModeSet(REJOIN_SECURITY)` only cleared `aps_use_insecure_join = 0` but never restored `aps_authenticated = 1`. Because retention RAM preserves stack BSS across sleep cycles, `zdo_nlme_join_confirm` waited for a Trust Center Transport Key (which Zigbee 3.0 coordinators never send on secure rejoin) and timed out with `0x8D`.
+  - Enforced `REJOIN_SECURITY` across all rejoin attempts (insecure rejoin removed) and explicitly reset `APS_IB().aps_authenticated = 1` and `APS_IB().aps_use_insecure_join = 0` before every rejoin request.
+- **Permanent Deep Sleep Lockout on Rejoin Exhaustion**:
+  - Fixed an issue where reaching 15 failed rejoin attempts cancelled all backoff timers, leaving the device stranded in deep sleep with no wake timer scheduled.
+  - Extended rejoin retry schedule to a 3-day window (`ZB_REJOIN_MAX_ATTEMPTS = 85`), continuing to retry once every 1 hour (alternating 2 single-channel scans : 1 full 16-channel scan) for ~74 hours (~3.08 days) at ~7.0 µA before entering battery-saver deep sleep (4.0 µA).
+  - Tapping the tag with an NFC smartphone or reader wakes the tag and restarts rejoin backoff at any time.
+
+### Changed
+- **Power Consumption Documentation**:
+  - Updated [`docs/power-consumption.md`](docs/power-consumption.md) with comprehensive power modeling for the 1-hour rejoin backoff mode (~7.00 µA average current, 8.15 years projected longevity on CR2450) and documented the 3-day recovery window.
+
 ---
 
 ## [v1.0.05] - 2026-09-27
