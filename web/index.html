@@ -1,0 +1,2595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TLSR Dual-Stack E-Paper BLE Manager</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #151d30;
+            --card-border: #23314f;
+            --accent-blue: #38bdf8;
+            --accent-purple: #818cf8;
+            --accent-red: #ef4444;
+            --accent-green: #22c55e;
+            --accent-amber: #f59e0b;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 1100px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 18px 24px;
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .header-title h1 {
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .badge {
+            background: var(--accent-purple);
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge.ble {
+            background: var(--accent-blue);
+            color: #0b0f19;
+        }
+
+        .header-title p {
+            font-size: 13px;
+            color: var(--text-dim);
+            margin-top: 4px;
+        }
+
+        button {
+            background: var(--accent-blue);
+            color: #0b0f19;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        button:hover:not(:disabled) {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button.danger { background: var(--accent-red); color: white; }
+        button.warning { background: var(--accent-amber); color: #0b0f19; }
+        button.secondary { background: #23314f; color: var(--text-main); }
+        button.success { background: var(--accent-green); color: #0b0f19; }
+        button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .card-label {
+            font-size: 12px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .card-value {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        .control-section {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .slots-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        @media (max-width: 600px) {
+            .slots-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .slot-btn {
+            background: #1c2742;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .slot-btn:hover {
+            border-color: var(--card-border);
+            background: #23314f;
+        }
+
+        .slot-btn.active {
+            border-color: var(--accent-blue);
+            background: #173254;
+        }
+
+        .slot-name {
+            font-weight: 700;
+            font-size: 12px;
+            color: var(--text-main);
+        }
+
+        .slot-desc {
+            font-size: 10px;
+            color: var(--text-dim);
+        }
+
+        .style-select {
+            background: #1c2742;
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            width: 100%;
+            outline: none;
+        }
+
+        .log-box {
+            background: #070a10;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 11px;
+            height: 180px;
+            overflow-y: auto;
+            color: #a5b4fc;
+            line-height: 1.5;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #1c2742;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+
+        /* Canvas Studio Styles */
+        .canvas-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #070a10;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 12px;
+            overflow-x: auto;
+        }
+
+        #epdCanvas {
+            image-rendering: pixelated;
+            background: #ffffff;
+            border: 2px solid #334155;
+            cursor: crosshair;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .tool-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+            background: #1c2742;
+            color: var(--text-main);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .tool-btn.active {
+            background: var(--accent-blue);
+            color: #0b0f19;
+            font-weight: 700;
+        }
+
+        .color-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .color-dot:hover { transform: scale(1.15); }
+        .color-dot.active { border-color: #38bdf8; box-shadow: 0 0 6px #38bdf8; }
+        .color-black { background: #000000; border: 1px solid #475569; }
+        .color-white { background: #ffffff; border: 1px solid #cbd5e1; }
+        .color-red { background: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="header-title">
+                <h1>
+                    <span>TLSR Dual-Stack E-Paper</span>
+                    <span class="badge ble">BLE Control</span>
+                </h1>
+                <p id="headerSubtitle">Hanshow Stellar-M3N@ / E31HA (Dual Zigbee 3.0 + BLE 5.0 Stack) - 2.13" 250x122 BWR</p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 12px; color: var(--text-dim);">Device Model:</span>
+                    <select id="selDeviceModel" onchange="setDeviceModel(this.value)" style="background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 6px 10px; font-size: 12px; outline: none; cursor: pointer;">
+                        <option value="TLSR-M3Na-E31HA" selected>Stellar-M3N@ / E31HA (2.13" 250x122)</option>
+                        <option value="TLSR-XL3Na-E31PA">Stellar-XL3N@ / E31PA (4.2" 400x300)</option>
+                    </select>
+                </div>
+                <label id="lblAllDevices" style="font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <input type="checkbox" id="chkAllDevices"> Show all BLE devices
+                </label>
+                <div id="headerConnStatus" style="display: flex; align-items: center; gap: 6px; font-size: 12px; background: #0c1220; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--card-border);">
+                    <span id="connStatusDot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim);"></span>
+                    <span id="valStatus" style="color: var(--text-dim); font-weight: 600;">Disconnected</span>
+                </div>
+                <button id="btnConnect" onclick="toggleConnect()">⚡ Connect Device</button>
+            </div>
+        </header>
+
+        <!-- Telemetry Cards -->
+        <div class="telemetry-grid">
+            <div class="card">
+                <div class="card-label">Firmware Version</div>
+                <div class="card-value" id="valFwVersion" style="font-family: monospace; font-size: 15px;">--</div>
+            </div>
+            <div class="card">
+                <div class="card-label">MAC Address</div>
+                <div class="card-value" id="valMacAddr" style="font-family: monospace; font-size: 14px;">--</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Boot Bank</div>
+                <div class="card-value" id="valBank" style="font-size: 14px;">--</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Battery Voltage</div>
+                <div class="card-value" id="valBattery">--</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Temperature</div>
+                <div class="card-value" id="valTemp">--</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Total Refreshes</div>
+                <div class="card-value" id="valRefreshes">--</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Wakeup Count</div>
+                <div class="card-value" id="valWakeCount" style="color: var(--accent-amber);">--</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Wakeup Duration</div>
+                <div class="card-value" id="valWakeDuration" style="font-size: 15px;">--</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Radio TX Duration</div>
+                <div class="card-value" id="valTxDuration" style="font-size: 15px; color: var(--accent-red);">--</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Radio RX Duration</div>
+                <div class="card-value" id="valRxDuration" style="font-size: 15px; color: var(--accent-green);">--</div>
+            </div>
+        </div>
+
+        <!-- Main Workspace -->
+        <div class="main-grid">
+            <!-- Left Column: Display Controls & Device Control -->
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Screen & Display Management Card -->
+                <div class="card control-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <div class="card-label" style="margin-bottom: 0;">🖥️ Screen & Display Management</div>
+                        <div style="font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 6px;">
+                            <span>Active on Tag:</span>
+                            <span id="valSlot" style="color: var(--accent-blue); font-weight: 600; background: #0c1220; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--card-border);">--</span>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <span style="font-size: 12px; color: var(--text-dim);">Select Screen Slot:</span>
+                        <div class="slots-grid" id="slotsGrid">
+                            <div class="slot-btn active" id="slot0" onclick="selectSlot(0)">
+                                <div class="slot-name">Slot 0</div>
+                                <div class="slot-desc">Info Page</div>
+                            </div>
+                            <div class="slot-btn" id="slot1" onclick="selectSlot(1)">
+                                <div class="slot-name">Slot 1</div>
+                                <div class="slot-desc">User 1 (4KB)</div>
+                            </div>
+                            <div class="slot-btn" id="slot2" onclick="selectSlot(2)">
+                                <div class="slot-name">Slot 2</div>
+                                <div class="slot-desc">User 2 (4KB)</div>
+                            </div>
+                            <div class="slot-btn" id="slot3" onclick="selectSlot(3)">
+                                <div class="slot-name">Slot 3</div>
+                                <div class="slot-desc">User 3 (4KB)</div>
+                            </div>
+                            <div class="slot-btn" id="slot4" onclick="selectSlot(4)">
+                                <div class="slot-name">Slot 4</div>
+                                <div class="slot-desc">User 4 (4KB)</div>
+                            </div>
+                            <div class="slot-btn" id="slot5" onclick="selectSlot(5)">
+                                <div class="slot-name">Slot 5</div>
+                                <div class="slot-desc">User 5 (4KB)</div>
+                            </div>
+                            <div class="slot-btn" id="slot6" onclick="selectSlot(6)">
+                                <div class="slot-name">Slot 6</div>
+                                <div class="slot-desc">User 6 (4KB)</div>
+                            </div>
+                            <div class="slot-btn" id="slot7" onclick="selectSlot(7)">
+                                <div class="slot-name">Slot 7</div>
+                                <div class="slot-desc">User 7 (4KB)</div>
+                            </div>
+                            <div class="slot-btn" id="slot8" onclick="selectSlot(8)">
+                                <div class="slot-name">Slot 8</div>
+                                <div class="slot-desc">User 8 (4KB)</div>
+                            </div>
+                            <div class="slot-btn" id="slot9" onclick="selectSlot(9)">
+                                <div class="slot-name">Slot 9</div>
+                                <div class="slot-desc">User 9 (4KB)</div>
+                            </div>
+                            <div class="slot-btn" id="slot10" onclick="selectSlot(10)">
+                                <div class="slot-name">Slot 10</div>
+                                <div class="slot-desc">User 10 (4KB)</div>
+                            </div>
+                            <div class="slot-btn" id="slot11" onclick="selectSlot(11)">
+                                <div class="slot-name">Slot 11</div>
+                                <div class="slot-desc">User 11 (4KB)</div>
+                            </div>
+                            <div class="slot-btn" id="slot12" onclick="selectSlot(12)">
+                                <div class="slot-name">Slot 12</div>
+                                <div class="slot-desc">User 12 (4KB)</div>
+                            </div>
+                            <div class="slot-btn" id="slot13" onclick="selectSlot(13)">
+                                <div class="slot-name">Slot 13</div>
+                                <div class="slot-desc">Blank (White)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <span style="font-size: 12px; color: var(--text-dim);">Rendering Style:</span>
+                        <select class="style-select" id="selStyle" onchange="selectedStyle = parseInt(this.value)">
+                            <option value="0">Standard (Tri-color: Black, White, Red as stored)</option>
+                            <option value="1">B&W (Black &rarr; Black, Red &rarr; Black, White &rarr; White)</option>
+                            <option value="2">B&W Inverted (Black &rarr; White, Red &rarr; White, White &rarr; Black)</option>
+                            <option value="3">Red & White (Black &rarr; Red, Red &rarr; Red, White &rarr; White)</option>
+                            <option value="4">Red & White Inverted (Black &rarr; White, Red &rarr; White, White &rarr; Red)</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px;">
+                        <button id="btnApplySlot" onclick="applySlotAndStyle()" disabled>Apply Slot & Style</button>
+                        <button class="secondary" id="btnRefresh" onclick="forceRefresh()" disabled>🔄 Force Refresh</button>
+                        <button class="secondary" id="btnQuery" onclick="queryStatus()" disabled>📡 Read Status</button>
+                    </div>
+                </div>
+
+                <!-- Device Control Card -->
+                <div class="card control-section">
+                    <div class="card-label">⚙️ Device Control</div>
+                    <p style="font-size: 12px; color: var(--text-dim);">
+                        Reboot the tag, switch active stack back to Zigbee 3.0, or factory-reset Zigbee network credentials (NVRAM).
+                    </p>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="secondary" id="btnReboot" onclick="rebootDevice()" disabled style="flex: 1; min-width: 130px;">
+                            ⚡ Reboot Device
+                        </button>
+                        <button class="warning" id="btnSwitchZigbee" onclick="confirmSwitchToZigbee()" disabled style="flex: 1; min-width: 140px;">
+                            🔄 Switch to Zigbee
+                        </button>
+                        <button class="danger" id="btnResetZigbee" onclick="confirmResetZigbee()" disabled style="flex: 1; min-width: 140px;">
+                            ⚠️ Reset Zigbee Network
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Telink OTA & Console Log -->
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div class="card" style="display: flex; flex-direction: column; gap: 12px;">
+                    <div class="card-label">⚡ Telink BLE Wireless OTA Flasher</div>
+                    <p style="font-size: 12px; color: var(--text-dim);">
+                        Flash 192 KB Dual-Stack firmware binaries over-the-air directly from this web page.
+                    </p>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <button class="secondary" id="btnLoadLatestFw" onclick="fetchLatestFirmware()">
+                            📦 Load Built Firmware (.bin)
+                        </button>
+                        <input type="file" id="fwFileInput" accept=".bin" style="display: none;" onchange="handleFileSelected(event)">
+                        <button class="secondary" onclick="document.getElementById('fwFileInput').click()">
+                            📁 Choose File
+                        </button>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 12px; color: var(--text-dim);">RAM Cache:</span>
+                            <select id="otaChunkSize" style="background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 4px; padding: 6px 8px; font-size: 12px; outline: none; cursor: pointer;">
+                                <option value="16" selected>16 KB (Fastest ~30s)</option>
+                                <option value="8">8 KB (Balanced ~40s)</option>
+                                <option value="4">4 KB (Safe ~55s)</option>
+                            </select>
+                        </div>
+                        <button class="warning" id="btnStartOta" onclick="startOtaFlashing()" disabled>
+                            🚀 Flash OTA
+                        </button>
+                    </div>
+                    <div id="fwInfo" style="font-size: 11px; color: var(--accent-blue); display: none;"></div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="otaFill"></div>
+                    </div>
+                    <div id="otaStatus" style="font-size: 11px; color: var(--text-dim);">Ready</div>
+                </div>
+
+                <div class="card" style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="card-label" style="margin-bottom: 0;">📜 Event Log</div>
+                        <button class="secondary" onclick="clearLog()" style="padding: 4px 8px; font-size: 11px;">Clear</button>
+                    </div>
+                    <div class="log-box" id="logBox"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fast Dynamic Prototyping & Live BLE Debug Console (Visible only on DEBUG=1 firmware) -->
+        <div class="card" id="cardDebugConsole" style="display: none; flex-direction: column; gap: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <div class="card-label" style="font-size: 14px; color: var(--accent-purple); margin-bottom: 2px;">
+                        ⚡ Fast Dynamic Prototyping &amp; Live BLE Debug Console
+                    </div>
+                    <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 0;">
+                        Upload compiled C snippet binaries (&lt; 16 KB) directly to Flash <code>0x70000</code> and execute with zero reboots. Live-stream debug logs over BLE.
+                    </p>
+                    <div id="snippetBankWarning" style="display: none; background: #3b2800; border: 1px solid var(--accent-amber); color: #fbbf24; padding: 6px 10px; border-radius: 6px; font-size: 11px; margin-top: 6px;"></div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <input type="file" id="snippetFileInput" accept=".bin" style="display: none;" onchange="handleSnippetFileSelected(event)">
+                    <button class="secondary" onclick="document.getElementById('snippetFileInput').click()">
+                        📁 Choose Snippet (.bin)
+                    </button>
+                    <button class="warning" id="btnUploadSnippet" onclick="uploadAndRunSnippet()" disabled>
+                        🚀 Upload &amp; Run
+                    </button>
+                    <button class="secondary" id="btnRerunSnippet" onclick="reRunSnippet()" disabled title="Re-execute the snippet already loaded at 0x70000 without uploading again">
+                        🔄 Re-Run
+                    </button>
+                </div>
+            </div>
+
+            <!-- Snippet status & progress -->
+            <div id="snippetInfo" style="font-size: 12px; color: var(--text-main); display: none; background: #0c1220; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--card-border);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div>📄 File: <strong id="snippetFileName" style="color: var(--accent-blue);">--</strong> (<span id="snippetFileSize">0</span> bytes)</div>
+                    <div id="snippetExecStatus" style="font-weight: 600; color: var(--text-dim);">Status: Ready</div>
+                </div>
+                <div class="progress-bar" id="snippetProgressContainer" style="display: none; margin-top: 6px;">
+                    <div class="progress-fill" id="snippetFill"></div>
+                </div>
+            </div>
+
+            <!-- Live Debug Log Terminal -->
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 12px; font-weight: 600; color: var(--text-main);">📋 Live In-Memory Ring Buffer Logs (Last 64 Entries)</span>
+                        <label style="display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--accent-green); cursor: pointer;">
+                            <input type="checkbox" id="chkAutoPollLogs" onchange="toggleAutoLogPoll(this.checked)" checked>
+                            <span>Auto-Poll (1.5s)</span>
+                        </label>
+                    </div>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <button class="secondary" id="btnPullLogs" onclick="pollDebugLogs()" disabled style="padding: 4px 8px; font-size: 11px;">
+                            📥 Pull Logs
+                        </button>
+                        <button class="secondary" id="btnClearLogs" onclick="clearDebugLogRing()" disabled style="padding: 4px 8px; font-size: 11px;">
+                            🧹 Device Clear
+                        </button>
+                        <button class="secondary" onclick="clearLiveLogConsole()" style="padding: 4px 8px; font-size: 11px;">
+                            Clear Console
+                        </button>
+                    </div>
+                </div>
+                <div class="log-box" id="liveMcuLogBox" style="height: 160px; color: #38bdf8; background: #05080f; border-color: rgba(56, 189, 248, 0.2);">
+                    <div style="color: var(--text-dim); font-style: italic;">No logs received yet. Connect to device and enable Auto-Poll or click 'Pull Logs'.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Full Width: Tri-Color E-Paper Image Studio -->
+        <div class="card" style="display: flex; flex-direction: column; gap: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <div class="card-label" id="studioTitle" style="font-size: 14px; color: var(--accent-blue); margin-bottom: 2px;">🎨 Tri-Color E-Paper Image Studio (250 &times; 122)</div>
+                    <p style="font-size: 12px; color: var(--text-dim);">Draw artwork or convert photos with BWR Floyd-Steinberg dithering, upload to flash slots, or fetch images back from the tag.</p>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="file" id="imgFileInput" accept="image/*" style="display: none;" onchange="handleImageFileSelected(event)">
+                    <button class="secondary" onclick="document.getElementById('imgFileInput').click()">🖼️ Import Image</button>
+                    <select id="ditherAlgo" style="background: #1c2742; border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 6px 10px; font-size: 12px;">
+                        <option value="threshold" selected>Nearest / Threshold</option>
+                        <option value="fs">Floyd-Steinberg BWR Dither</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Toolbar & Palette -->
+            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: #0c1220; padding: 10px; border-radius: 8px; border: 1px solid var(--card-border);">
+                <!-- Palette -->
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <span style="font-size: 12px; color: var(--text-dim);">Color:</span>
+                    <div class="color-dot color-black active" id="dotBlack" onclick="setDrawColor('#000000')" title="Black"></div>
+                    <div class="color-dot color-red" id="dotRed" onclick="setDrawColor('#ef4444')" title="Red"></div>
+                    <div class="color-dot color-white" id="dotWhite" onclick="setDrawColor('#ffffff')" title="White"></div>
+                </div>
+
+                <div style="width: 1px; height: 20px; background: var(--card-border);"></div>
+
+                <!-- Tools -->
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <button class="tool-btn active" id="toolPencil" onclick="setDrawTool('pencil')">✏️ Pen</button>
+                    <button class="tool-btn" id="toolLine" onclick="setDrawTool('line')">📏 Line</button>
+                    <button class="tool-btn" id="toolRect" onclick="setDrawTool('rect')">⬜ Rect</button>
+                    <button class="tool-btn" id="toolText" onclick="stampText()">🔤 Add Text</button>
+                    <button class="tool-btn" onclick="clearCanvas()">🗑️ Clear</button>
+                    <button class="tool-btn" onclick="invertCanvas()">🔄 Invert</button>
+                </div>
+
+                <div style="width: 1px; height: 20px; background: var(--card-border);"></div>
+
+                <!-- Pen Size -->
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <span style="font-size: 12px; color: var(--text-dim);">Size:</span>
+                    <select id="penSize" style="background: #1c2742; border: 1px solid var(--card-border); color: var(--text-main); border-radius: 4px; padding: 4px 6px; font-size: 12px;">
+                        <option value="1">1 px</option>
+                        <option value="2" selected>2 px</option>
+                        <option value="3">3 px</option>
+                        <option value="5">5 px</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Canvas Workspace -->
+            <div class="canvas-container">
+                <canvas id="epdCanvas" width="250" height="122" style="width: 500px; height: 244px;"></canvas>
+                <div id="canvasPreviewInfo" style="font-size: 11px; color: var(--text-dim); margin-top: 6px;">Display preview: 250 &times; 122 pixels (scaled 2&times; for pixel editing)</div>
+            </div>
+
+            <!-- Slot Upload & Fetch Controls -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; background: #0c1220; padding: 12px; border-radius: 8px; border: 1px solid var(--card-border);">
+                <!-- Upload section -->
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <span style="font-size: 12px; font-weight: 600;">Save Canvas to:</span>
+                    <select id="targetUploadSlot" style="background: #1c2742; border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 6px 10px; font-size: 12px;">
+                        <option value="1">Slot 1 (User Image 1, 4KB)</option>
+                        <option value="2">Slot 2 (User Image 2, 4KB)</option>
+                        <option value="3">Slot 3 (User Image 3, 4KB)</option>
+                        <option value="4">Slot 4 (User Image 4, 4KB)</option>
+                        <option value="5">Slot 5 (User Image 5, 4KB)</option>
+                        <option value="6">Slot 6 (User Image 6, 4KB)</option>
+                        <option value="7">Slot 7 (User Image 7, 4KB)</option>
+                        <option value="8">Slot 8 (User Image 8, 4KB)</option>
+                    </select>
+                    <select id="selUploadMode" style="background: #1c2742; border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 6px 10px; font-size: 12px;" title="Upload Protocol Mode: Turbo (fast pipelined stream with flow barriers) or Safe (ATT acknowledged writes)">
+                        <option value="turbo" selected>⚡ Turbo Stream</option>
+                        <option value="safe">🛡️ Safe (ATT ACK)</option>
+                    </select>
+                    <label style="font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                        <input type="checkbox" id="chkAutoDisplay" checked> Display immediately
+                    </label>
+                    <button class="success" id="btnUploadImage" onclick="uploadCanvasToSlot()" disabled>
+                        ⬆️ Upload Image to Slot
+                    </button>
+                </div>
+
+                <!-- Fetch section -->
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <span style="font-size: 12px; font-weight: 600;">Fetch from:</span>
+                    <select id="targetFetchSlot" style="background: #1c2742; border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 6px 10px; font-size: 12px;">
+                        <option value="0">Slot 0 (Info Page)</option>
+                        <option value="1" selected>Slot 1 (User Image 1)</option>
+                        <option value="2">Slot 2 (User Image 2)</option>
+                        <option value="3">Slot 3 (User Image 3)</option>
+                        <option value="4">Slot 4 (User Image 4)</option>
+                        <option value="5">Slot 5 (User Image 5)</option>
+                        <option value="6">Slot 6 (User Image 6)</option>
+                        <option value="7">Slot 7 (User Image 7)</option>
+                        <option value="8">Slot 8 (User Image 8)</option>
+                        <option value="9">Slot 9 (Blank White)</option>
+                    </select>
+                    <button class="secondary" id="btnFetchImage" onclick="fetchImageFromSlot()" disabled>
+                        ⬇️ Fetch Image to Canvas
+                    </button>
+                </div>
+            </div>
+
+            <!-- Image Upload / Fetch Progress -->
+            <div id="imgProgressContainer" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="imgFill"></div>
+                </div>
+                <div id="imgStatus" style="font-size: 11px; color: var(--accent-blue); margin-top: 4px;">Ready</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const UUID_EPD_SERVICE        = '00001314-0000-1000-8000-00805f9b34fb';
+        const UUID_EPD_CMD            = '00001315-0000-1000-8000-00805f9b34fb';
+        const UUID_EPD_DATA           = '00001316-0000-1000-8000-00805f9b34fb';
+        const UUID_EPD_PWR            = '00001317-0000-1000-8000-00805f9b34fb';
+        const UUID_TELINK_OTA_SERVICE = '00010203-0405-0607-0809-0a0b0c0d1912';
+        const UUID_TELINK_OTA_CHAR    = '00010203-0405-0607-0809-0a0b0c0d2b12';
+
+        const DEVICE_CONFIGS = {
+            'TLSR-M3Na-E31HA': {
+                name: 'Hanshow Stellar-M3N@ / E31HA',
+                desc: 'Hanshow Stellar-M3N@ / E31HA (Dual Zigbee 3.0 + BLE 5.0 Stack) - 2.13" 250x122 BWR',
+                width: 250,
+                height: 122,
+                planeSize: 4000,
+                lineBytes: 16,
+                totalLines: 250,
+                maxSlotSize: 4096,
+                canvasStyle: 'width: 500px; height: 244px;',
+                previewText: 'Display preview: 250 × 122 pixels (scaled 2× for pixel editing)',
+                studioTitle: '🎨 Tri-Color E-Paper Image Studio (250 × 122)',
+                fwFile: 'tlsr-epaper-m3na.bin',
+                slots: [
+                    { id: 0, name: 'Slot 0', desc: 'Info Page' },
+                    { id: 1, name: 'Slot 1', desc: 'User 1 (4KB)' },
+                    { id: 2, name: 'Slot 2', desc: 'User 2 (4KB)' },
+                    { id: 3, name: 'Slot 3', desc: 'User 3 (4KB)' },
+                    { id: 4, name: 'Slot 4', desc: 'User 4 (4KB)' },
+                    { id: 5, name: 'Slot 5', desc: 'User 5 (4KB)' },
+                    { id: 6, name: 'Slot 6', desc: 'User 6 (4KB)' },
+                    { id: 7, name: 'Slot 7', desc: 'User 7 (4KB)' },
+                    { id: 8, name: 'Slot 8', desc: 'User 8 (4KB)' },
+                    { id: 9, name: 'Slot 9', desc: 'Blank (White)' },
+                ],
+                uploadSlots: [
+                    { id: 1, label: 'Slot 1 (User Image 1, 4KB)' },
+                    { id: 2, label: 'Slot 2 (User Image 2, 4KB)' },
+                    { id: 3, label: 'Slot 3 (User Image 3, 4KB)' },
+                    { id: 4, label: 'Slot 4 (User Image 4, 4KB)' },
+                    { id: 5, label: 'Slot 5 (User Image 5, 4KB)' },
+                    { id: 6, label: 'Slot 6 (User Image 6, 4KB)' },
+                    { id: 7, label: 'Slot 7 (User Image 7, 4KB)' },
+                    { id: 8, label: 'Slot 8 (User Image 8, 4KB)' },
+                ],
+                fetchSlots: [
+                    { id: 0, label: 'Slot 0 (Info Page)' },
+                    { id: 1, label: 'Slot 1 (User Image 1)' },
+                    { id: 2, label: 'Slot 2 (User Image 2)' },
+                    { id: 3, label: 'Slot 3 (User Image 3)' },
+                    { id: 4, label: 'Slot 4 (User Image 4)' },
+                    { id: 5, label: 'Slot 5 (User Image 5)' },
+                    { id: 6, label: 'Slot 6 (User Image 6)' },
+                    { id: 7, label: 'Slot 7 (User Image 7)' },
+                    { id: 8, label: 'Slot 8 (User Image 8)' },
+                    { id: 9, label: 'Slot 9 (Blank White)' },
+                ]
+            },
+            'TLSR-XL3Na-E31PA': {
+                name: 'Hanshow Stellar-XL3N@ / E31PA',
+                desc: 'Hanshow Stellar-XL3N@ / E31PA (Dual Zigbee 3.0 + BLE 5.0 Stack) - 4.2" 400x300 BWR',
+                width: 400,
+                height: 300,
+                planeSize: 15000,
+                lineBytes: 50,
+                totalLines: 300,
+                maxSlotSize: 8192,
+                canvasStyle: 'max-width: 500px; width: 100%; height: auto; aspect-ratio: 400/300;',
+                previewText: 'Display preview: 400 × 300 pixels (1:1 native view for 4.2" display)',
+                studioTitle: '🎨 Tri-Color E-Paper Image Studio (400 × 300)',
+                fwFile: 'tlsr-epaper-xl3na.bin',
+                slots: [
+                    { id: 0, name: 'Slot 0', desc: 'Info Page' },
+                    { id: 1, name: 'Slot 1', desc: 'User 1 (8KB)' },
+                    { id: 2, name: 'Slot 2', desc: 'User 2 (8KB)' },
+                    { id: 3, name: 'Slot 3', desc: 'User 3 (8KB)' },
+                    { id: 4, name: 'Slot 4', desc: 'User 4 (8KB)' },
+                    { id: 5, name: 'Slot 5', desc: 'Blank (White)' },
+                ],
+                uploadSlots: [
+                    { id: 1, label: 'Slot 1 (User Image 1, 8KB)' },
+                    { id: 2, label: 'Slot 2 (User Image 2, 8KB)' },
+                    { id: 3, label: 'Slot 3 (User Image 3, 8KB)' },
+                    { id: 4, label: 'Slot 4 (User Image 4, 8KB)' },
+                ],
+                fetchSlots: [
+                    { id: 0, label: 'Slot 0 (Info Page)' },
+                    { id: 1, label: 'Slot 1 (User Image 1)' },
+                    { id: 2, label: 'Slot 2 (User Image 2)' },
+                    { id: 3, label: 'Slot 3 (User Image 3)' },
+                    { id: 4, label: 'Slot 4 (User Image 4)' },
+                    { id: 5, label: 'Slot 5 (Blank White)' },
+                ]
+            }
+        };
+
+        let currentModel = 'TLSR-M3Na-E31HA';
+        let bluetoothDevice = null;
+        let gattServer = null;
+        let epdCmdChar = null;
+        let epdDataChar = null;
+        let epdPwrChar = null;
+        let otaChar = null;
+
+        let selectedSlot = 0;
+        let selectedStyle = 0;
+        let otaFirmwareBuffer = null;
+
+        // Chunk fetch response synchronization
+        let chunkResolve = null;
+        let streamFetchHandler = null;
+
+        // Prototype Snippet & Live Log Monitor state
+        let prototypeBinaryBuffer = null;
+        let lastSnippetSeq = 0;
+        let lastRenderedSeq = 0;
+        let isPollingLogs = false;
+        let autoLogPollTimer = null;
+        let isSnippetRunning = false;
+
+        const styleNames = ['Standard (BWR)', 'B&W Standard', 'B&W Inverted', 'R&W Standard', 'R&W Inverted'];
+
+        function log(msg) {
+            const time = new Date().toLocaleTimeString();
+            const logBox = document.getElementById('logBox');
+            logBox.innerHTML += `[${time}] ${msg}<br>`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('logBox').innerHTML = '';
+        }
+
+        function setDeviceModel(modelId, silent = false) {
+            if (!DEVICE_CONFIGS[modelId]) return;
+            currentModel = modelId;
+            const cfg = DEVICE_CONFIGS[modelId];
+
+            // 1. Header subtitle
+            const sub = document.getElementById('headerSubtitle');
+            if (sub) sub.innerText = cfg.desc;
+
+            // 2. Dropdown sync
+            const selModel = document.getElementById('selDeviceModel');
+            if (selModel && selModel.value !== modelId) selModel.value = modelId;
+
+            // 3. Studio title & preview info
+            const st = document.getElementById('studioTitle');
+            if (st) st.innerText = cfg.studioTitle;
+            const cpi = document.getElementById('canvasPreviewInfo');
+            if (cpi) cpi.innerText = cfg.previewText;
+
+            // 4. Canvas dimensions & style
+            const c = document.getElementById('epdCanvas');
+            if (c) {
+                c.width = cfg.width;
+                c.height = cfg.height;
+                c.style.cssText = cfg.canvasStyle;
+                initCanvas();
+            }
+
+            // 5. Screen slots
+            renderSlotButtons();
+
+            // 6. Upload & Fetch dropdowns
+            const upSel = document.getElementById('targetUploadSlot');
+            if (upSel) {
+                upSel.innerHTML = cfg.uploadSlots.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
+            }
+            const fetchSel = document.getElementById('targetFetchSlot');
+            if (fetchSel) {
+                fetchSel.innerHTML = cfg.fetchSlots.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
+            }
+
+            if (!silent) {
+                log(`Workspace model set to ${cfg.name} (${cfg.width}x${cfg.height}).`);
+            }
+        }
+
+        function renderSlotButtons() {
+            const cfg = DEVICE_CONFIGS[currentModel];
+            const grid = document.getElementById('slotsGrid');
+            if (!grid) return;
+
+            if (selectedSlot >= cfg.slots.length) selectedSlot = 0;
+
+            grid.innerHTML = cfg.slots.map(s => `
+                <div class="slot-btn ${s.id === selectedSlot ? 'active' : ''}" id="slot${s.id}" onclick="selectSlot(${s.id})">
+                    <div class="slot-name">${s.name}</div>
+                    <div class="slot-desc">${s.desc}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectSlot(slot) {
+            const cfg = DEVICE_CONFIGS[currentModel];
+            if (slot >= cfg.slots.length) slot = 0;
+            selectedSlot = slot;
+            cfg.slots.forEach(s => {
+                const el = document.getElementById(`slot${s.id}`);
+                if (el) el.classList.toggle('active', s.id === slot);
+            });
+            const sObj = cfg.slots.find(s => s.id === slot);
+            log(`Selected ${sObj ? `${sObj.name} (${sObj.desc})` : 'Slot ' + slot}`);
+        }
+
+        async function toggleConnect() {
+            if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+                bluetoothDevice.gatt.disconnect();
+                return;
+            }
+
+            if (!navigator.bluetooth) {
+                alert('Web Bluetooth is not supported in this browser. Please use Chrome, Edge, or Bluefy (iOS).');
+                return;
+            }
+
+            try {
+                log('Scanning for TLSR Dual-Stack BLE devices...');
+                const useAll = document.getElementById('chkAllDevices').checked;
+
+                const options = useAll ? {
+                    acceptAllDevices: true,
+                    optionalServices: [
+                        UUID_EPD_SERVICE,
+                        UUID_TELINK_OTA_SERVICE,
+                        0x1800, 0x180a, 0x180f
+                    ]
+                } : {
+                    filters: [
+                        { namePrefix: 'TLSR' },
+                        { namePrefix: 'DUO' },
+                        { namePrefix: 'ATC' }
+                    ],
+                    optionalServices: [
+                        UUID_EPD_SERVICE,
+                        UUID_TELINK_OTA_SERVICE,
+                        0x1800, 0x180a, 0x180f
+                    ]
+                };
+
+                bluetoothDevice = await navigator.bluetooth.requestDevice(options);
+                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+                log(`Connecting to ${bluetoothDevice.name || 'Unnamed Device'}...`);
+                gattServer = await bluetoothDevice.gatt.connect();
+                log('Connected! Discovering services...');
+
+                // 1. Discover EPD Custom Service
+                try {
+                    const service = await gattServer.getPrimaryService(UUID_EPD_SERVICE);
+                    epdCmdChar = await service.getCharacteristic(UUID_EPD_CMD);
+                    await epdCmdChar.startNotifications();
+                    epdCmdChar.addEventListener('characteristicvaluechanged', onCmdNotification);
+                    log('EPD Control Command Characteristic (0x1315) discovered.');
+
+                    try {
+                        epdDataChar = await service.getCharacteristic(UUID_EPD_DATA);
+                        log('EPD Data Streaming Characteristic (0x1316) ready.');
+                    } catch (errData) {
+                        log(`Notice: EPD Data characteristic: ${errData}`);
+                    }
+
+                    try {
+                        epdPwrChar = await service.getCharacteristic(UUID_EPD_PWR);
+                        log('EPD Power Statistics Characteristic (0x1317) ready.');
+                    } catch (errPwr) {
+                        log(`Notice: EPD Power characteristic: ${errPwr}`);
+                    }
+                } catch (e) {
+                    log(`Warning: EPD service not found: ${e}`);
+                }
+
+                // 2. Discover Telink OTA Service
+                try {
+                    const otaService = await gattServer.getPrimaryService(UUID_TELINK_OTA_SERVICE);
+                    otaChar = await otaService.getCharacteristic(UUID_TELINK_OTA_CHAR);
+                    log('Telink OTA Service ready.');
+                } catch (e) {
+                    log('Note: OTA service not available.');
+                }
+
+                // 3. Auto-detect Hardware Model from DIS (0x180A)
+                try {
+                    const disService = await gattServer.getPrimaryService(0x180a);
+                    const modelChar = await disService.getCharacteristic(0x2a24);
+                    const modelVal = await modelChar.readValue();
+                    const decoder = new TextDecoder('utf-8');
+                    const modelStr = decoder.decode(modelVal).replace(/\0/g, '').trim();
+                    log(`Detected hardware model from device: "${modelStr}"`);
+                    if (modelStr.includes('XL3') || modelStr.includes('E31PA')) {
+                        setDeviceModel('TLSR-XL3Na-E31PA');
+                    } else if (modelStr.includes('M3') || modelStr.includes('E31HA')) {
+                        setDeviceModel('TLSR-M3Na-E31HA');
+                    }
+                } catch (disErr) {
+                    const devName = bluetoothDevice.name || '';
+                    if (devName.includes('XL3')) {
+                        setDeviceModel('TLSR-XL3Na-E31PA');
+                    }
+                }
+
+                document.getElementById('valStatus').innerText = 'Connected';
+                document.getElementById('valStatus').style.color = 'var(--accent-green)';
+                const connDot = document.getElementById('connStatusDot');
+                if (connDot) {
+                    connDot.style.background = 'var(--accent-green)';
+                    connDot.style.boxShadow = '0 0 8px var(--accent-green)';
+                }
+                const chkAll = document.getElementById('lblAllDevices');
+                if (chkAll) chkAll.style.display = 'none';
+                const btnConn = document.getElementById('btnConnect');
+                btnConn.innerText = 'Disconnect';
+                btnConn.classList.add('danger');
+                setControlsEnabled(true);
+
+                // Initial Query
+                await queryStatus();
+                if (document.getElementById('chkAutoPollLogs')?.checked) {
+                    toggleAutoLogPoll(true);
+                }
+            } catch (err) {
+                log(`Connection error: ${err.message || err}`);
+            }
+        }
+
+        function onDisconnected() {
+            log('Device disconnected.');
+            toggleAutoLogPoll(false);
+            isSnippetRunning = false;
+            document.getElementById('valStatus').innerText = 'Disconnected';
+            document.getElementById('valStatus').style.color = 'var(--text-dim)';
+            const connDot = document.getElementById('connStatusDot');
+            if (connDot) {
+                connDot.style.background = 'var(--text-dim)';
+                connDot.style.boxShadow = 'none';
+            }
+            const chkAll = document.getElementById('lblAllDevices');
+            if (chkAll) chkAll.style.display = 'flex';
+            const btnConn = document.getElementById('btnConnect');
+            btnConn.innerText = '⚡ Connect Device';
+            btnConn.classList.remove('danger');
+            if (document.getElementById('valFwVersion')) document.getElementById('valFwVersion').innerText = '--';
+            if (document.getElementById('valMacAddr')) document.getElementById('valMacAddr').innerText = '--';
+            if (document.getElementById('valBank')) document.getElementById('valBank').innerText = '--';
+            document.getElementById('valBattery').innerText = '--';
+            document.getElementById('valTemp').innerText = '--';
+            document.getElementById('valSlot').innerText = '--';
+            document.getElementById('valRefreshes').innerText = '--';
+            if (document.getElementById('valWakeCount')) document.getElementById('valWakeCount').innerText = '--';
+            if (document.getElementById('valWakeDuration')) document.getElementById('valWakeDuration').innerText = '--';
+            if (document.getElementById('valTxDuration')) document.getElementById('valTxDuration').innerText = '--';
+            if (document.getElementById('valRxDuration')) document.getElementById('valRxDuration').innerText = '--';
+            const cardDebug = document.getElementById('cardDebugConsole');
+            if (cardDebug) cardDebug.style.display = 'none';
+            epdCmdChar = null;
+            epdDataChar = null;
+            epdPwrChar = null;
+            otaChar = null;
+            setControlsEnabled(false);
+        }
+
+        function setControlsEnabled(en) {
+            document.getElementById('btnApplySlot').disabled = !en;
+            document.getElementById('btnRefresh').disabled = !en;
+            document.getElementById('btnQuery').disabled = !en;
+            document.getElementById('btnReboot').disabled = !en;
+            document.getElementById('btnSwitchZigbee').disabled = !en;
+            document.getElementById('btnResetZigbee').disabled = !en;
+            document.getElementById('btnStartOta').disabled = !(en && otaFirmwareBuffer);
+            document.getElementById('btnUploadImage').disabled = !en;
+            document.getElementById('btnFetchImage').disabled = !en;
+            const btnUploadSnippet = document.getElementById('btnUploadSnippet');
+            if (btnUploadSnippet) btnUploadSnippet.disabled = !(en && prototypeBinaryBuffer);
+            const btnRerunSnippet = document.getElementById('btnRerunSnippet');
+            if (btnRerunSnippet) btnRerunSnippet.disabled = !en;
+            const btnPullLogs = document.getElementById('btnPullLogs');
+            if (btnPullLogs) btnPullLogs.disabled = !en;
+            const btnClearLogs = document.getElementById('btnClearLogs');
+            if (btnClearLogs) btnClearLogs.disabled = !en;
+        }
+
+        function handleStatusData(val) {
+            if (!val || val.length < 1) return;
+
+            // Autonomous stream fetch or single chunk fetch marker (0x86)
+            if (val[0] === 0x86) {
+                if (streamFetchHandler) {
+                    streamFetchHandler(val);
+                    return;
+                }
+                if (chunkResolve) {
+                    const resolve = chunkResolve;
+                    chunkResolve = null;
+                    resolve(val);
+                }
+                return;
+            }
+
+            // Snippet execution result marker (0x89)
+            if (val[0] === 0x89 && val.length >= 7) {
+                let ret = val[1] | (val[2] << 8);
+                if (ret > 32767) ret -= 65536; // signed int16
+                const dur = (val[3] | (val[4] << 8) | (val[5] << 16) | (val[6] << 24)) >>> 0;
+                const statusEl = document.getElementById('snippetExecStatus');
+                if (statusEl) {
+                    statusEl.innerHTML = `<span style="color: ${ret === 0 ? 'var(--accent-green)' : '#ef4444'}">⚡ Finished: exit code ${ret}, duration ${dur} ms</span>`;
+                }
+                log(`▶ Prototype snippet completed! Return code: ${ret}, Duration: ${dur} ms`);
+                isSnippetRunning = false;
+                const btnUploadSnippet = document.getElementById('btnUploadSnippet');
+                if (btnUploadSnippet) btnUploadSnippet.disabled = !prototypeBinaryBuffer;
+                const btnRerunSnippet = document.getElementById('btnRerunSnippet');
+                if (btnRerunSnippet) btnRerunSnippet.disabled = false;
+                setTimeout(() => pollDebugLogs(), 100);
+                return;
+            }
+
+            // Live debug log message marker (0x8A)
+            if (val[0] === 0x8A && val.length >= 3) {
+                const seq = val[1] | (val[2] << 8);
+                if (seq === 0 && val.length >= 5) {
+                    const latest = val[3] | (val[4] << 8);
+                    if (latest > lastSnippetSeq) lastSnippetSeq = latest;
+                    return;
+                }
+                if (seq > 0) {
+                    if (seq <= lastRenderedSeq) {
+                        return; // Drop duplicate log entry already displayed
+                    }
+                    lastRenderedSeq = seq;
+                    if (seq > lastSnippetSeq) lastSnippetSeq = seq;
+                    let tsMs = 0;
+                    let text = '';
+                    const decoder = new TextDecoder('utf-8');
+                    if (val.length >= 7) {
+                        tsMs = (val[3] | (val[4] << 8) | (val[5] << 16) | (val[6] << 24)) >>> 0;
+                        text = decoder.decode(val.subarray(7)).replace(/\0/g, '');
+                    } else {
+                        text = decoder.decode(val.subarray(3)).replace(/\0/g, '');
+                    }
+                    appendLiveLog(seq, tsMs, text);
+                }
+                return;
+            }
+
+            // Telemetry status marker (0x83)
+            if (val[0] === 0x83 && val.length >= 10) {
+                const slot = val[1];
+                const vbatMv = (val[2] << 8) | val[3];
+                const temp = val[4];
+                const refreshCount = (val[5] << 8) | val[6];
+                const mode = val[7];
+                const busy = val[8];
+                const style = val[9];
+
+                const modeNames = { 1: 'Zigbee 3.0', 2: 'BLE 5.0' };
+                const cfg = DEVICE_CONFIGS[currentModel];
+                const sObj = cfg ? cfg.slots.find(s => s.id === slot) : null;
+                const slotLabel = sObj ? sObj.desc : `Slot ${slot}`;
+
+                const bankCode = (val.length >= 11) ? (val[10] === 0 ? 'B0' : 'B1') : '';
+                const bankAddr = (val.length >= 11) ? (val[10] === 0 ? '0x00000' : '0x40000') : '';
+                const bankFull = bankCode ? `Bank ${val[10]} [${bankCode}] (${bankAddr})` : '';
+                const otaErr = (val.length >= 12 && val[11] > 0) ? ` (OTA_Err=${val[11]})` : '';
+
+                const bankWarningEl = document.getElementById('snippetBankWarning');
+                if (bankWarningEl) {
+                    if (val.length >= 11 && val[10] === 1) {
+                        bankWarningEl.style.display = 'block';
+                        bankWarningEl.innerHTML = '⚠️ <strong>Notice:</strong> Device is running on <strong>Bank 1 (OTA @ 0x40000)</strong>. Dynamic snippets must be compiled for Bank 1 (XIP link <code>0x30000</code>). Please upload <code>*_bank1.bin</code> or compile with <code>prototype_runner.py --bank 1</code>.';
+                    } else {
+                        bankWarningEl.style.display = 'none';
+                    }
+                }
+
+                // Firmware Version (bytes 12..15)
+                let fwStr = '--';
+                if (val.length >= 16) {
+                    const fwNum = ((val[12] << 24) | (val[13] << 16) | (val[14] << 8) | val[15]) >>> 0;
+                    fwStr = fwNum.toString(16).toUpperCase().padStart(8, '0');
+                }
+
+                // Public IEEE MAC address (bytes 16..21)
+                let macStr = '--';
+                if (val.length >= 22) {
+                    macStr = [val[16], val[17], val[18], val[19], val[20], val[21]]
+                        .map(b => b.toString(16).toUpperCase().padStart(2, '0'))
+                        .join(':');
+                }
+
+                // Debug firmware detection (byte 22: 1 = DEBUG=1, 0 = DEBUG=0)
+                const isDebugFirmware = (val.length >= 23 && val[22] === 1);
+                const cardDebug = document.getElementById('cardDebugConsole');
+                if (cardDebug) {
+                    cardDebug.style.display = isDebugFirmware ? 'flex' : 'none';
+                }
+
+                // Update Telemetry Cards
+                const debugBadge = isDebugFirmware ? ' <span style="background: rgba(168,85,247,0.2); color: #c084fc; border: 1px solid rgba(168,85,247,0.4); font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 600;">DEBUG</span>' : '';
+                const elFw = document.getElementById('valFwVersion');
+                if (elFw) elFw.innerHTML = `<strong>${fwStr}</strong>${debugBadge}`;
+                const elMac = document.getElementById('valMacAddr');
+                if (elMac) elMac.innerHTML = `<strong>${macStr}</strong>`;
+                const elBank = document.getElementById('valBank');
+                if (elBank) elBank.innerText = (bankFull || '--') + otaErr;
+                document.getElementById('valBattery').innerText = `${(vbatMv / 1000).toFixed(2)} V (${vbatMv} mV)`;
+                document.getElementById('valTemp').innerText = `${temp} °C`;
+                const elSlot = document.getElementById('valSlot');
+                if (elSlot) elSlot.innerText = `Slot ${slot} (${slotLabel}) • ${styleNames[style] || style}${busy ? ' [Busy]' : ''}`;
+                document.getElementById('valRefreshes').innerText = refreshCount;
+
+                selectSlot(slot);
+                document.getElementById('selStyle').value = style;
+                selectedStyle = style;
+
+                log('Telemetry updated.');
+            }
+        }
+
+        function onCmdNotification(event) {
+            const dv = event.target.value;
+            const val = new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength);
+            handleStatusData(val);
+        }
+
+        async function readPowerStats() {
+            if (!epdPwrChar) return;
+            try {
+                const pwrVal = await epdPwrChar.readValue();
+                if (pwrVal.byteLength >= 16) {
+                    const wakeCount = pwrVal.getUint32(0, true);
+                    const wakeMs = pwrVal.getUint32(4, true);
+                    const txMs = pwrVal.getUint32(8, true);
+                    const rxMs = pwrVal.getUint32(12, true);
+
+                    const formatMs = (ms) => {
+                        if (ms < 1000) return `${ms} ms`;
+                        if (ms < 60000) return `${(ms / 1000).toFixed(2)} s`;
+                        const mins = Math.floor(ms / 60000);
+                        const secs = ((ms % 60000) / 1000).toFixed(1);
+                        return `${mins}m ${secs}s (${ms} ms)`;
+                    };
+
+                    if (document.getElementById('valWakeCount')) {
+                        document.getElementById('valWakeCount').innerText = wakeCount.toLocaleString();
+                    }
+                    if (document.getElementById('valWakeDuration')) {
+                        document.getElementById('valWakeDuration').innerText = formatMs(wakeMs);
+                    }
+                    if (document.getElementById('valTxDuration')) {
+                        document.getElementById('valTxDuration').innerText = formatMs(txMs);
+                    }
+                    if (document.getElementById('valRxDuration')) {
+                        document.getElementById('valRxDuration').innerText = formatMs(rxMs);
+                    }
+                    log(`Power stats: Wakes: ${wakeCount}, Awake: ${wakeMs}ms, TX: ${txMs}ms, RX: ${rxMs}ms`);
+                }
+            } catch (e) {
+                log(`Read power stats: ${e.message || e}`);
+            }
+        }
+
+        async function queryStatus() {
+            if (!epdCmdChar) return;
+            try {
+                log('Querying device telemetry...');
+                await epdCmdChar.writeValue(new Uint8Array([0x13]));
+                const resp = await epdCmdChar.readValue();
+                handleStatusData(new Uint8Array(resp.buffer, resp.byteOffset, resp.byteLength));
+            } catch (e) {
+                log(`Query status: ${e.message || e}`);
+            }
+            await readPowerStats();
+        }
+
+        async function writeEpdCmd(cmd) {
+            if (!epdCmdChar) return;
+            if (epdCmdChar.writeValueWithResponse) {
+                await epdCmdChar.writeValueWithResponse(cmd);
+            } else if (epdCmdChar.writeValue) {
+                await epdCmdChar.writeValue(cmd);
+            } else {
+                await epdCmdChar.writeValueWithoutResponse(cmd);
+            }
+        }
+
+        async function applySlotAndStyle() {
+            if (!epdCmdChar) return;
+            try {
+                const cfg = DEVICE_CONFIGS[currentModel];
+                const sObj = cfg ? cfg.slots.find(s => s.id === selectedSlot) : null;
+                const slotTitle = sObj ? `${sObj.name} (${sObj.desc})` : `Slot ${selectedSlot}`;
+                log(`Applying ${slotTitle} with Style: ${styleNames[selectedStyle] || selectedStyle}...`);
+                const cmd = new Uint8Array([0x10, selectedSlot, selectedStyle]);
+                await writeEpdCmd(cmd);
+                log('Slot switch command sent.');
+            } catch (e) {
+                log(`Apply error: ${e}`);
+            }
+        }
+
+        async function forceRefresh() {
+            if (!epdCmdChar) return;
+            try {
+                log('Triggering screen refresh (Full BWR 3-Color)...');
+                await writeEpdCmd(new Uint8Array([0x11]));
+                log('Refresh command sent.');
+            } catch (e) {
+                log(`Refresh error: ${e}`);
+            }
+        }
+
+        async function rebootDevice() {
+            if (!epdCmdChar) return;
+            if (!confirm('Reboot ESL Device?\n\nThe device will restart immediately.')) {
+                return;
+            }
+            try {
+                log('Sending CMD_REBOOT [0x31] to device...');
+                await epdCmdChar.writeValue(new Uint8Array([0x31]));
+                log('✅ Device acknowledged reboot. Restarting...');
+            } catch (e) {
+                log(`Reboot error: ${e.message || e}`);
+            }
+        }
+
+        async function confirmSwitchToZigbee() {
+            if (!epdCmdChar) return;
+            if (!confirm('Switch device back to Zigbee 3.0 Mode?\n\nThe device will write mode to flash, reboot, and reconnect to your Zigbee network.')) {
+                return;
+            }
+
+            try {
+                log('Sending switch to Zigbee mode command [0x30, 0x01]...');
+                await epdCmdChar.writeValue(new Uint8Array([0x30, 0x01]));
+                log('✅ Device acknowledged mode switch! Rebooting into Zigbee mode...');
+            } catch (e) {
+                log(`Switch mode error: ${e.message || e}`);
+            }
+        }
+
+        async function confirmResetZigbee() {
+            if (!epdCmdChar) return;
+            if (!confirm('⚠️ Reset Zigbee Network?\n\nThis will completely erase Zigbee network credentials, binding tables, and stack NVRAM (0x30000 - 0x3FFFF).\n\nWhen rebooted into Zigbee mode, the tag will join as a brand new device in pairing mode.')) {
+                return;
+            }
+
+            try {
+                log('Sending Reset Zigbee Network command [0x32]...');
+                await epdCmdChar.writeValue(new Uint8Array([0x32]));
+                log('✅ Zigbee Network reset command acknowledged. NVRAM cleared.');
+            } catch (e) {
+                log(`Zigbee network reset failed: ${e.message || e}`);
+            }
+        }
+
+        /* =========================================================================
+           Fast Prototype Snippet Runner & Live BLE Debug Console
+           ========================================================================= */
+        function handleSnippetFileSelected(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const bytes = new Uint8Array(e.target.result);
+                if (bytes.length > 16384) {
+                    alert(`Snippet size (${bytes.length} B) exceeds maximum prototype partition size (16 KB / 16,384 B).`);
+                    return;
+                }
+                prototypeBinaryBuffer = bytes;
+                const infoEl = document.getElementById('snippetInfo');
+                if (infoEl) infoEl.style.display = 'block';
+                const fnEl = document.getElementById('snippetFileName');
+                if (fnEl) fnEl.innerText = file.name;
+                const fsEl = document.getElementById('snippetFileSize');
+                if (fsEl) fsEl.innerText = bytes.length;
+                const stEl = document.getElementById('snippetExecStatus');
+                if (stEl) stEl.innerHTML = '<span style="color: var(--text-dim);">Ready to upload</span>';
+                if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+                    const btn = document.getElementById('btnUploadSnippet');
+                    if (btn) btn.disabled = false;
+                }
+                log(`Loaded prototype snippet: ${file.name} (${bytes.length} bytes).`);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function uploadAndRunSnippet() {
+            if (!epdCmdChar || !epdDataChar || !prototypeBinaryBuffer) {
+                alert('Device not connected or no snippet loaded.');
+                return;
+            }
+            if (isSnippetRunning) return;
+
+            const binLen = prototypeBinaryBuffer.length;
+            if (binLen > 16384) {
+                alert('Snippet exceeds 16 KB prototype partition size.');
+                return;
+            }
+
+            isSnippetRunning = true;
+            const btnUpload = document.getElementById('btnUploadSnippet');
+            if (btnUpload) btnUpload.disabled = true;
+            const btnRerun = document.getElementById('btnRerunSnippet');
+            if (btnRerun) btnRerun.disabled = true;
+
+            const progressContainer = document.getElementById('snippetProgressContainer');
+            const progressFill = document.getElementById('snippetFill');
+            const statusEl = document.getElementById('snippetExecStatus');
+            if (progressContainer) progressContainer.style.display = 'block';
+            if (progressFill) progressFill.style.width = '0%';
+            if (statusEl) statusEl.innerHTML = '<span style="color: var(--accent-amber);">Preparing snippet upload...</span>';
+
+            try {
+                let verified = false;
+                for (let attempt = 1; attempt <= 2 && !verified; attempt++) {
+                    if (attempt > 1) {
+                        log(`Retrying prototype snippet upload (attempt ${attempt}/2)...`);
+                        await new Promise(r => setTimeout(r, 300));
+                    }
+
+                    // 1. Prepare prototype snippet upload: 0x40 <len_lo> <len_hi>
+                    log(`Preparing prototype upload (${binLen} B)...`);
+                    await epdCmdChar.writeValue(new Uint8Array([0x40, binLen & 0xFF, (binLen >> 8) & 0xFF]));
+                    if (statusEl) statusEl.innerHTML = '<span style="color: var(--accent-amber);">Negotiating low-latency BLE connection...</span>';
+                    // Allow 1200ms for L2CAP Connection Parameter update (latency 0, interval 10ms) to complete
+                    await new Promise(r => setTimeout(r, 1200));
+
+                    // 2. Stream binary in 20-byte OTA-style CRC16 blocks to EPD Data characteristic
+                    const chunkSize = 16;
+                    const totalBlocks = Math.ceil(binLen / chunkSize);
+                    for (let b = 0; b < totalBlocks; b++) {
+                        const blockData = new Uint8Array(16).fill(0xFF);
+                        const chunk = prototypeBinaryBuffer.subarray(b * 16, Math.min((b + 1) * 16, binLen));
+                        blockData.set(chunk);
+
+                        const pkt = new Uint8Array(20);
+                        pkt[0] = b & 0xFF;
+                        pkt[1] = (b >> 8) & 0xFF;
+                        pkt.set(blockData, 2);
+
+                        const crc = crc16_modbus(pkt.subarray(0, 18));
+                        pkt[18] = crc & 0xFF;
+                        pkt[19] = (crc >> 8) & 0xFF;
+
+                        if (epdDataChar.writeValueWithoutResponse) {
+                            await epdDataChar.writeValueWithoutResponse(pkt);
+                        } else {
+                            await epdDataChar.writeValue(pkt);
+                        }
+
+                        const pct = Math.floor(((b + 1) / totalBlocks) * 100);
+                        if (progressFill) progressFill.style.width = `${pct}%`;
+                        if (statusEl) statusEl.innerHTML = `<span style="color: var(--accent-blue);">Uploading: ${pct}% (${Math.min((b + 1) * 16, binLen)}/${binLen} B)</span>`;
+                        
+                        // Pace packets safely to prevent buffer overflow in BLE controller
+                        if (b > 0 && b % 8 === 0) {
+                            await new Promise(r => setTimeout(r, 20));
+                        } else {
+                            await new Promise(r => setTimeout(r, 8));
+                        }
+                    }
+
+                    log(`Snippet binary (${binLen} B) uploaded. Verifying telemetry...`);
+                    await new Promise(r => setTimeout(r, 60));
+
+                    // Verify telemetry readback
+                    if (epdDataChar && epdDataChar.readValue) {
+                        const telem = await epdDataChar.readValue();
+                        if (telem && telem.byteLength >= 3) {
+                            const confirmedOff = telem.getUint16(0, true);
+                            const errCode = telem.getUint8(2);
+                            if (errCode === 0 && confirmedOff >= binLen) {
+                                verified = true;
+                                log(`✓ Upload telemetry verified: ${confirmedOff} B confirmed in RAM cache.`);
+                            } else if (attempt === 2) {
+                                const errNames = { 1: 'Packet Loss', 2: 'CRC Error', 3: 'Buffer Overflow' };
+                                throw new Error(`Device upload verification failed: ${errNames[errCode] || errCode} (confirmed ${confirmedOff}/${binLen} B)`);
+                            }
+                        }
+                    }
+                }
+
+                // 3. Enable real-time log streaming: 0x51 0x01
+                await epdCmdChar.writeValue(new Uint8Array([0x51, 0x01]));
+
+                // 4. Commit and execute: 0x41 [flags=0x01] [addr=0x70000]
+                if (statusEl) statusEl.innerHTML = '<span style="color: var(--accent-purple);">Committing flash &amp; executing...</span>';
+                log('Committing snippet to Flash (0x70000) and executing...');
+                // Address 0x70000 little-endian: 0x00, 0x00, 0x07, 0x00
+                await epdCmdChar.writeValue(new Uint8Array([0x41, 0x01, 0x00, 0x00, 0x07, 0x00]));
+
+            } catch (e) {
+                isSnippetRunning = false;
+                if (statusEl) statusEl.innerHTML = `<span style="color: #ef4444;">Error: ${e.message || e}</span>`;
+                log(`Snippet upload/exec error: ${e.message || e}`);
+                if (btnUpload) btnUpload.disabled = false;
+                if (btnRerun) btnRerun.disabled = false;
+            }
+        }
+
+        async function reRunSnippet() {
+            if (!epdCmdChar) return;
+            const statusEl = document.getElementById('snippetExecStatus');
+            if (statusEl) statusEl.innerHTML = '<span style="color: var(--accent-purple);">Re-executing...</span>';
+            log('Re-executing snippet at Flash 0x70000...');
+            try {
+                // Ensure log streaming is on
+                await epdCmdChar.writeValue(new Uint8Array([0x51, 0x01]));
+                // 0x42 <target_addr_0..3>
+                await epdCmdChar.writeValue(new Uint8Array([0x42, 0x00, 0x00, 0x07, 0x00]));
+            } catch (e) {
+                log(`Re-run error: ${e.message || e}`);
+            }
+        }
+
+        async function pollDebugLogs() {
+            if (isPollingLogs || !epdCmdChar || !bluetoothDevice || !bluetoothDevice.gatt.connected) return;
+            isPollingLogs = true;
+            try {
+                const cmd = new Uint8Array([0x50, lastSnippetSeq & 0xFF, (lastSnippetSeq >> 8) & 0xFF]);
+                if (epdCmdChar.writeValueWithoutResponse) {
+                    await epdCmdChar.writeValueWithoutResponse(cmd);
+                } else {
+                    await epdCmdChar.writeValue(cmd);
+                }
+            } catch (e) {
+                // ignore transient poll drops
+            } finally {
+                isPollingLogs = false;
+            }
+        }
+
+        async function clearDebugLogRing() {
+            if (!epdCmdChar) return;
+            try {
+                log('Clearing device in-memory debug log buffer...');
+                await epdCmdChar.writeValue(new Uint8Array([0x52]));
+                lastSnippetSeq = 0;
+                lastRenderedSeq = 0;
+                log('Device log ring cleared.');
+            } catch (e) {
+                log(`Clear log buffer error: ${e.message || e}`);
+            }
+        }
+
+        function clearLiveLogConsole() {
+            const box = document.getElementById('liveMcuLogBox');
+            if (box) box.innerHTML = '<div style="color: var(--text-dim); font-style: italic;">Log console cleared.</div>';
+        }
+
+        function appendLiveLog(seq, tsMs, text) {
+            const box = document.getElementById('liveMcuLogBox');
+            if (!box) return;
+            if (box.firstElementChild && box.firstElementChild.style.fontStyle === 'italic') {
+                box.innerHTML = '';
+            }
+            const timeStr = new Date().toLocaleTimeString();
+            const tsSec = tsMs > 0 ? `${(tsMs / 1000).toFixed(3)}s` : '--';
+            const div = document.createElement('div');
+            div.style.lineHeight = '1.4';
+            div.style.whiteSpace = 'pre-wrap';
+            div.style.wordBreak = 'break-all';
+            div.innerHTML = `<span style="color: var(--text-dim);">[${timeStr} | ${tsSec}]</span> <span style="color: var(--accent-amber); font-weight: 600;">#${String(seq).padStart(3, '0')}</span> <span>${escapeHtml(text)}</span>`;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function toggleAutoLogPoll(enable) {
+            if (autoLogPollTimer) {
+                clearInterval(autoLogPollTimer);
+                autoLogPollTimer = null;
+            }
+            if (enable && bluetoothDevice && bluetoothDevice.gatt.connected) {
+                autoLogPollTimer = setInterval(() => pollDebugLogs(), 1500);
+            }
+        }
+
+        /* =========================================================================
+           Canvas Drawing & Image Processing Studio
+           ========================================================================= */
+        const canvas = document.getElementById('epdCanvas');
+        const ctx = canvas.getContext('2d');
+        let currentDrawColor = '#000000';
+        let currentTool = 'pencil';
+        let isDrawing = false;
+        let startX = 0, startY = 0;
+        let snapshotData = null;
+
+        // Initialize canvas with white background
+        function initCanvas() {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        initCanvas();
+        setDeviceModel(currentModel, true);
+
+        function setDrawColor(color) {
+            currentDrawColor = color;
+            document.querySelectorAll('.color-dot').forEach(el => el.classList.remove('active'));
+            if (color === '#000000') document.getElementById('dotBlack').classList.add('active');
+            else if (color === '#ef4444') document.getElementById('dotRed').classList.add('active');
+            else if (color === '#ffffff') document.getElementById('dotWhite').classList.add('active');
+        }
+
+        function setDrawTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.tool-btn').forEach(el => el.classList.remove('active'));
+            if (tool === 'pencil') document.getElementById('toolPencil').classList.add('active');
+            else if (tool === 'line') document.getElementById('toolLine').classList.add('active');
+            else if (tool === 'rect') document.getElementById('toolRect').classList.add('active');
+        }
+
+        function clearCanvas() {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            log('Canvas cleared to white.');
+        }
+
+        function invertCanvas() {
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const d = imgData.data;
+            for (let i = 0; i < d.length; i += 4) {
+                // Invert Black <-> White, keep Red
+                const r = d[i], g = d[i+1], b = d[i+2];
+                const isRed = (r > 150 && g < 100 && b < 100);
+                if (!isRed) {
+                    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                    const inv = lum < 128 ? 255 : 0;
+                    d[i] = inv; d[i+1] = inv; d[i+2] = inv;
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+            log('Canvas colors inverted.');
+        }
+
+        function stampText() {
+            const txt = prompt('Enter text to stamp on display:');
+            if (!txt) return;
+            const size = prompt('Font size (px):', '16') || '16';
+            ctx.fillStyle = currentDrawColor;
+            ctx.font = `bold ${size}px sans-serif`;
+            ctx.textBaseline = 'top';
+            ctx.fillText(txt, 10, 10);
+            log(`Stamped text: "${txt}"`);
+        }
+
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: Math.floor((e.clientX - rect.x) * scaleX),
+                y: Math.floor((e.clientY - rect.y) * scaleY)
+            };
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const c = getCanvasCoords(e);
+            isDrawing = true;
+            startX = c.x;
+            startY = c.y;
+            snapshotData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+            if (currentTool === 'pencil') {
+                const penSize = parseInt(document.getElementById('penSize').value, 10);
+                ctx.fillStyle = currentDrawColor;
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, penSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const c = getCanvasCoords(e);
+            const penSize = parseInt(document.getElementById('penSize').value, 10);
+
+            if (currentTool === 'pencil') {
+                ctx.strokeStyle = currentDrawColor;
+                ctx.lineWidth = penSize;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(c.x, c.y);
+                ctx.stroke();
+                startX = c.x;
+                startY = c.y;
+            } else if (currentTool === 'line') {
+                ctx.putImageData(snapshotData, 0, 0);
+                ctx.strokeStyle = currentDrawColor;
+                ctx.lineWidth = penSize;
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(c.x, c.y);
+                ctx.stroke();
+            } else if (currentTool === 'rect') {
+                ctx.putImageData(snapshotData, 0, 0);
+                ctx.strokeStyle = currentDrawColor;
+                ctx.lineWidth = penSize;
+                ctx.strokeRect(Math.min(startX, c.x), Math.min(startY, c.y), Math.abs(c.x - startX), Math.abs(c.y - startY));
+            }
+        });
+
+        window.addEventListener('mouseup', () => { isDrawing = false; });
+
+        // Image file loading & Floyd-Steinberg BWR dithering
+        function handleImageFileSelected(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const algo = document.getElementById('ditherAlgo').value;
+                    applyImageToCanvas(img, algo);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function applyImageToCanvas(img, algo) {
+            const w = canvas.width;
+            const h = canvas.height;
+            // Create temporary canvas to scale image to target dimensions
+            const tmp = document.createElement('canvas');
+            tmp.width = w;
+            tmp.height = h;
+            const tctx = tmp.getContext('2d');
+            tctx.fillStyle = '#ffffff';
+            tctx.fillRect(0, 0, w, h);
+            tctx.drawImage(img, 0, 0, w, h);
+
+            const imgData = tctx.getImageData(0, 0, w, h);
+            const d = imgData.data;
+
+            const palette = [
+                { r: 0,   g: 0,   b: 0,   name: 'black' },
+                { r: 255, g: 255, b: 255, name: 'white' },
+                { r: 239, g: 68,  b: 68,  name: 'red' }
+            ];
+
+            function findNearestColor(r, g, b) {
+                // Boost red sensitivity:
+                if (r > 120 && (r - g) > 40 && (r - b) > 40) {
+                    return palette[2]; // Red
+                }
+                let bestDist = Infinity;
+                let bestCol = palette[0];
+                for (const col of palette) {
+                    const dr = r - col.r;
+                    const dg = g - col.g;
+                    const db = b - col.b;
+                    const dist = dr * dr * 0.3 + dg * dg * 0.59 + db * db * 0.11;
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        bestCol = col;
+                    }
+                }
+                return bestCol;
+            }
+
+            if (algo === 'threshold') {
+                for (let i = 0; i < d.length; i += 4) {
+                    const nc = findNearestColor(d[i], d[i+1], d[i+2]);
+                    d[i] = nc.r; d[i+1] = nc.g; d[i+2] = nc.b;
+                }
+            } else {
+                // Floyd-Steinberg BWR Dithering
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        const idx = (y * w + x) * 4;
+                        const oldR = d[idx], oldG = d[idx+1], oldB = d[idx+2];
+                        const nc = findNearestColor(oldR, oldG, oldB);
+
+                        d[idx]   = nc.r;
+                        d[idx+1] = nc.g;
+                        d[idx+2] = nc.b;
+
+                        const errR = oldR - nc.r;
+                        const errG = oldG - nc.g;
+                        const errB = oldB - nc.b;
+
+                        function addError(px, py, factor) {
+                            if (px < 0 || px >= w || py < 0 || py >= h) return;
+                            const pidx = (py * w + px) * 4;
+                            d[pidx]   = Math.min(255, Math.max(0, d[pidx]   + errR * factor));
+                            d[pidx+1] = Math.min(255, Math.max(0, d[pidx+1] + errG * factor));
+                            d[pidx+2] = Math.min(255, Math.max(0, d[pidx+2] + errB * factor));
+                        }
+
+                        addError(x + 1, y,     7 / 16);
+                        addError(x - 1, y + 1, 3 / 16);
+                        addError(x,     y + 1, 5 / 16);
+                        addError(x + 1, y + 1, 1 / 16);
+                    }
+                }
+            }
+
+            ctx.putImageData(imgData, 0, 0);
+            log(`Applied image to canvas with ${algo === 'fs' ? 'Floyd-Steinberg' : 'Threshold'} BWR dithering (${w}x${h}).`);
+        }
+
+        // Convert Canvas to dual bit-planes (BW & Red)
+        function canvasToPlanes() {
+            const cfg = DEVICE_CONFIGS[currentModel];
+            const w = cfg.width;
+            const h = cfg.height;
+            const planeSize = cfg.planeSize;
+            const imgData = ctx.getImageData(0, 0, w, h);
+            const data = imgData.data;
+
+            const bwPlane = new Uint8Array(planeSize).fill(0xFF);  // 1 = White, 0 = Black
+            const redPlane = new Uint8Array(planeSize).fill(0x00); // 1 = Red, 0 = Non-red
+            let hasRed = false;
+
+            if (currentModel === 'TLSR-XL3Na-E31PA') {
+                // Native horizontal 400x300, 50 bytes per line (MSB on the left)
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        const idx = (y * w + x) * 4;
+                        const r = data[idx], g = data[idx+1], b = data[idx+2];
+                        const byteIdx = y * 50 + (x >> 3);
+                        const bitMask = 0x80 >> (x & 7);
+
+                        const isRed = (r > 150 && g < 100 && b < 100) || (r > 120 && (r - g) > 40 && (r - b) > 40);
+                        if (isRed) {
+                            hasRed = true;
+                            redPlane[byteIdx] |= bitMask;
+                            bwPlane[byteIdx]  |= bitMask; // White in BW plane
+                        } else {
+                            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                            if (lum < 128) {
+                                bwPlane[byteIdx] &= ~bitMask; // Black in BW plane
+                            } else {
+                                bwPlane[byteIdx] |= bitMask;  // White in BW plane
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Rotated 250x122 for Stellar-M3N@ / UC8151
+                for (let y = 0; y < 122; y++) {
+                    for (let x = 0; x < 250; x++) {
+                        const idx = (y * 250 + x) * 4;
+                        const r = data[idx], g = data[idx+1], b = data[idx+2];
+
+                        const col = 249 - x;
+                        const byteIdx = col * 16 + (y >> 3);
+                        const bitMask = 1 << (7 - (y & 7));
+
+                        const isRed = (r > 150 && g < 100 && b < 100) || (r > 120 && (r - g) > 40 && (r - b) > 40);
+                        if (isRed) {
+                            hasRed = true;
+                            redPlane[byteIdx] |= bitMask;
+                            bwPlane[byteIdx]  |= bitMask;
+                        } else {
+                            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                            if (lum < 128) {
+                                bwPlane[byteIdx] &= ~bitMask;
+                            } else {
+                                bwPlane[byteIdx] |= bitMask;
+                            }
+                        }
+                    }
+                }
+
+                // High padding bits in 16th byte
+                for (let col = 0; col < 250; col++) {
+                    bwPlane[col * 16 + 15] |= 0x3F;
+                }
+            }
+
+            return { bwPlane, redPlane, hasRed };
+        }
+
+        // Convert dual bit-planes (BW & Red) back to Canvas
+        function planesToCanvas(bwPlane, redPlane) {
+            const cfg = DEVICE_CONFIGS[currentModel];
+            const w = cfg.width;
+            const h = cfg.height;
+            const imgData = ctx.createImageData(w, h);
+            const d = imgData.data;
+
+            if (currentModel === 'TLSR-XL3Na-E31PA') {
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        const byteIdx = y * 50 + (x >> 3);
+                        const bitMask = 0x80 >> (x & 7);
+                        const isRed = redPlane && ((redPlane[byteIdx] & bitMask) !== 0);
+                        const isWhite = (bwPlane[byteIdx] & bitMask) !== 0;
+
+                        const idx = (y * w + x) * 4;
+                        if (isRed) {
+                            d[idx] = 239; d[idx+1] = 68; d[idx+2] = 68; d[idx+3] = 255;
+                        } else if (isWhite) {
+                            d[idx] = 255; d[idx+1] = 255; d[idx+2] = 255; d[idx+3] = 255;
+                        } else {
+                            d[idx] = 0; d[idx+1] = 0; d[idx+2] = 0; d[idx+3] = 255;
+                        }
+                    }
+                }
+            } else {
+                for (let y = 0; y < 122; y++) {
+                    for (let x = 0; x < 250; x++) {
+                        const col = 249 - x;
+                        const byteIdx = col * 16 + (y >> 3);
+                        const bitMask = 1 << (7 - (y & 7));
+
+                        const isRed = redPlane && ((redPlane[byteIdx] & bitMask) !== 0);
+                        const isWhite = (bwPlane[byteIdx] & bitMask) !== 0;
+
+                        const idx = (y * 250 + x) * 4;
+                        if (isRed) {
+                            d[idx] = 239; d[idx+1] = 68; d[idx+2] = 68; d[idx+3] = 255;
+                        } else if (isWhite) {
+                            d[idx] = 255; d[idx+1] = 255; d[idx+2] = 255; d[idx+3] = 255;
+                        } else {
+                            d[idx] = 0; d[idx+1] = 0; d[idx+2] = 0; d[idx+3] = 255;
+                        }
+                    }
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        /* =========================================================================
+           2D Delta (Vertical XOR) + PackBits Image Compression & Decompression
+           ========================================================================= */
+        function packbitsCompress(data) {
+            const out = [];
+            const n = data.length;
+            let i = 0;
+            while (i < n) {
+                let runLen = 1;
+                while (i + runLen < n && runLen < 128 && data[i + runLen] === data[i]) {
+                    runLen++;
+                }
+                if (runLen >= 3) {
+                    out.push((1 - runLen) & 0xFF);
+                    out.push(data[i]);
+                    i += runLen;
+                } else {
+                    const litStart = i;
+                    let litLen = 0;
+                    while (i < n && litLen < 128) {
+                        if (i + 2 < n && data[i] === data[i + 1] && data[i] === data[i + 2]) {
+                            break;
+                        }
+                        litLen++;
+                        i++;
+                    }
+                    if (litLen > 0) {
+                        out.push(litLen - 1);
+                        for (let k = 0; k < litLen; k++) out.push(data[litStart + k]);
+                    }
+                }
+            }
+            return new Uint8Array(out);
+        }
+
+        function packbitsDecompress(compData, expectedLen) {
+            const out = new Uint8Array(expectedLen);
+            let outIdx = 0;
+            let i = 0;
+            const n = compData.length;
+            while (i < n && outIdx < expectedLen) {
+                const hdr = compData[i++];
+                if (hdr <= 127) {
+                    const count = Math.min(hdr + 1, expectedLen - outIdx);
+                    out.set(compData.subarray(i, i + count), outIdx);
+                    i += (hdr + 1);
+                    outIdx += count;
+                } else if (hdr !== 128) {
+                    const hdrSigned = hdr > 127 ? hdr - 256 : hdr;
+                    const count = Math.min(1 - hdrSigned, expectedLen - outIdx);
+                    const val = compData[i++];
+                    out.fill(val, outIdx, outIdx + count);
+                    outIdx += count;
+                }
+            }
+            return out;
+        }
+
+        function compressPlane2DDelta(planeData, lineBytes, totalLines) {
+            const delta = new Uint8Array(planeData.length);
+            for (let l = 0; l < totalLines; l++) {
+                const start = l * lineBytes;
+                if (l === 0) {
+                    delta.set(planeData.subarray(0, lineBytes), 0);
+                } else {
+                    const prevStart = (l - 1) * lineBytes;
+                    for (let b = 0; b < lineBytes; b++) {
+                        delta[start + b] = planeData[start + b] ^ planeData[prevStart + b];
+                    }
+                }
+            }
+            return packbitsCompress(delta);
+        }
+
+        function decompressPlane2DDelta(compData, lineBytes, totalLines) {
+            const totalBytes = lineBytes * totalLines;
+            const delta = packbitsDecompress(compData, totalBytes);
+            const raw = new Uint8Array(totalBytes);
+            for (let l = 0; l < totalLines; l++) {
+                const start = l * lineBytes;
+                if (l === 0) {
+                    raw.set(delta.subarray(0, lineBytes), 0);
+                } else {
+                    const prevStart = (l - 1) * lineBytes;
+                    for (let b = 0; b < lineBytes; b++) {
+                        raw[start + b] = delta[start + b] ^ raw[prevStart + b];
+                    }
+                }
+            }
+            return raw;
+        }
+
+        // Upload Canvas to Flash Slot over BLE
+        async function uploadCanvasToSlot() {
+            if (!epdCmdChar || !epdDataChar) {
+                alert('BLE display service or data channel is not connected.');
+                return;
+            }
+
+            const cfg = DEVICE_CONFIGS[currentModel];
+            const slot = parseInt(document.getElementById('targetUploadSlot').value, 10);
+            const validSlot = cfg.uploadSlots.some(s => s.id === slot);
+            if (!validSlot) {
+                alert(`Invalid target slot ${slot} for ${cfg.name}.`);
+                return;
+            }
+
+            const btnUpload = document.getElementById('btnUploadImage');
+            btnUpload.disabled = true;
+            const progressContainer = document.getElementById('imgProgressContainer');
+            progressContainer.style.display = 'block';
+            const progressFill = document.getElementById('imgFill');
+            const statusEl = document.getElementById('imgStatus');
+
+            try {
+                let { bwPlane, redPlane, hasRed } = canvasToPlanes();
+
+                statusEl.innerText = 'Compressing image planes (2D Delta + PackBits)...';
+                log(`Compressing image for ${cfg.name} (${cfg.width}x${cfg.height}, lineBytes=${cfg.lineBytes}, totalLines=${cfg.totalLines})...`);
+
+                const compBw = compressPlane2DDelta(bwPlane, cfg.lineBytes, cfg.totalLines);
+                let compRed = null;
+                if (hasRed && redPlane) {
+                    compRed = compressPlane2DDelta(redPlane, cfg.lineBytes, cfg.totalLines);
+                }
+
+                const bwLen = compBw.length;
+                const redLen = compRed ? compRed.length : 0;
+                const totalPackageSize = 16 + bwLen + redLen;
+
+                log(`BW: ${bwPlane.length} B -> ${bwLen} B (${(bwLen / bwPlane.length * 100).toFixed(1)}%), Red: ${redPlane ? `${redPlane.length} B -> ${redLen} B` : 'None'}. Total package: ${totalPackageSize} B (Slot Limit: ${cfg.maxSlotSize} B).`);
+
+                if (totalPackageSize > cfg.maxSlotSize) {
+                    throw new Error(`Compressed package size (${totalPackageSize} B) exceeds ${cfg.name} slot capacity (${cfg.maxSlotSize} B). Please reduce image complexity.`);
+                }
+
+                // Construct 16-byte Header
+                const pkg = new Uint8Array(totalPackageSize);
+                const view = new DataView(pkg.buffer);
+                view.setUint16(0, 0x5A42, true);                  // magic: 'ZB'
+                view.setUint8(2, 1);                             // version: 1
+                view.setUint8(3, (hasRed && compRed) ? 1 : 0);   // flags (bit 0: has_red_plane)
+                view.setUint16(4, cfg.width, true);              // width
+                view.setUint16(6, cfg.height, true);             // height
+                view.setUint16(8, bwLen, true);                  // bw_comp_len
+                view.setUint16(10, redLen, true);                // red_comp_len
+                view.setUint16(12, 0, true);                     // reserved
+                view.setUint16(14, 0, true);                     // checksum
+
+                // Copy compressed payload
+                pkg.set(compBw, 16);
+                if (compRed && redLen > 0) {
+                    pkg.set(compRed, 16 + bwLen);
+                }
+
+                const uploadMode = document.getElementById('selUploadMode')?.value || 'turbo';
+                statusEl.innerText = `Preparing Slot ${slot} upload (${totalPackageSize} B)...`;
+                log(`Sending CMD_PREPARE [0x14, ${slot}, 0] (mode: ${uploadMode})...`);
+                // Send 0x14 <slot> <plane=0>
+                await epdCmdChar.writeValue(new Uint8Array([0x14, slot, 0]));
+
+                // The MCU erases 4-8 KB flash sector(s) (60-200ms) and requests 10ms L2CAP ConnParam update (~1.5s).
+                // Wait for the settle window so streaming begins only when flash is clear and 10ms interval is active.
+                statusEl.innerText = `Preparing Slot ${slot} (erasing flash & syncing BLE rate)...`;
+                await new Promise(r => setTimeout(r, 1600));
+
+                const BLOCK_SIZE = 16;
+                const totalBlocks = Math.ceil(pkg.length / BLOCK_SIZE);
+                // Flow sync barrier every 16 blocks (256 B) in turbo mode
+                const FLOW_SYNC_BLOCKS = 16;
+                // Pacing delay (5ms) in turbo mode
+                const PACING_DELAY_MS = 5;
+
+                log(`Streaming ${totalBlocks} blocks (${pkg.length} B) to Slot ${slot} using ${uploadMode === 'safe' ? 'Safe Mode (ATT ACK)' : 'Turbo Stream Mode'}...`);
+
+                async function safeReadUploadTelemetry(retries = 3, timeoutMs = 2500) {
+                    for (let attempt = 0; attempt < retries; attempt++) {
+                        if (!epdDataChar || !bluetoothDevice || !bluetoothDevice.gatt.connected) {
+                            throw new Error('Device disconnected during upload');
+                        }
+                        try {
+                            const readPromise = epdDataChar.readValue();
+                            const timeoutPromise = new Promise((_, reject) =>
+                                setTimeout(() => reject(new Error(`Telemetry read timeout (${timeoutMs}ms)`)), timeoutMs)
+                            );
+                            return await Promise.race([readPromise, timeoutPromise]);
+                        } catch (err) {
+                            if (!bluetoothDevice || !bluetoothDevice.gatt.connected || attempt === retries - 1) {
+                                throw err;
+                            }
+                            log(`⚠️ Telemetry read retry ${attempt + 1}/${retries} (${err.message || err})...`);
+                            await new Promise(r => setTimeout(r, 100));
+                        }
+                    }
+                }
+
+                let retryCount = 0;
+                const MAX_RETRIES = 5;
+                const streamStartTime = Date.now();
+
+                for (let b = 0; b < totalBlocks; b++) {
+                    if (!epdDataChar || !bluetoothDevice || !bluetoothDevice.gatt.connected) {
+                        throw new Error('Device disconnected during upload');
+                    }
+
+                    const blockData = new Uint8Array(16).fill(0xFF);
+                    const chunk = pkg.subarray(b * 16, Math.min((b + 1) * 16, pkg.length));
+                    blockData.set(chunk);
+
+                    const pkt = new Uint8Array(20);
+                    pkt[0] = b & 0xFF;
+                    pkt[1] = (b >> 8) & 0xFF;
+                    pkt.set(blockData, 2);
+
+                    const crc = crc16_modbus(pkt.subarray(0, 18));
+                    pkt[18] = crc & 0xFF;
+                    pkt[19] = (crc >> 8) & 0xFF;
+
+                    const isSafeMode = (uploadMode === 'safe' || retryCount >= 2);
+
+                    if (isSafeMode) {
+                        // Write With Response: hardware link ATT flow control
+                        let writeSuccess = false;
+                        for (let wAttempt = 0; wAttempt < 3; wAttempt++) {
+                            try {
+                                if (epdDataChar.writeValueWithResponse) {
+                                    await epdDataChar.writeValueWithResponse(pkt);
+                                } else if (epdDataChar.writeValue) {
+                                    await epdDataChar.writeValue(pkt);
+                                } else {
+                                    await epdDataChar.writeValueWithoutResponse(pkt);
+                                }
+                                writeSuccess = true;
+                                break;
+                            } catch (wErr) {
+                                if (!bluetoothDevice || !bluetoothDevice.gatt.connected || wAttempt === 2) throw wErr;
+                                await new Promise(r => setTimeout(r, 50));
+                            }
+                        }
+                    } else {
+                        // Turbo mode: Write Without Response with pacing
+                        await epdDataChar.writeValueWithoutResponse(pkt);
+                        await new Promise(r => setTimeout(r, PACING_DELAY_MS));
+                    }
+
+                    const isFlowSync = (uploadMode !== 'safe' && (b + 1) % FLOW_SYNC_BLOCKS === 0);
+                    const isLastBlock = (b === totalBlocks - 1);
+
+                    if (isFlowSync || isLastBlock) {
+                        const telem = await safeReadUploadTelemetry();
+                        if (telem && telem.byteLength >= 3) {
+                            const confirmedOff = telem.getUint16(0, true);
+                            const errCode = telem.getUint8(2);
+                            const confirmedBlk = Math.floor(confirmedOff / 16);
+
+                            if (errCode !== 0 || confirmedBlk < (b + 1)) {
+                                if (retryCount < MAX_RETRIES) {
+                                    retryCount++;
+                                    const errNames = { 1: 'Packet Loss', 2: 'CRC Error', 3: 'Buffer Overflow' };
+                                    const errMsg = errNames[errCode] || `Err ${errCode}`;
+                                    log(`⚠️ Upload sync issue at block ${b} (${errMsg}, tag confirmed ${confirmedOff} B / block ${confirmedBlk}). Rewinding to block ${confirmedBlk} (retry ${retryCount}/${MAX_RETRIES}, falling back to Safe Mode)...`);
+                                    await new Promise(r => setTimeout(r, 100));
+                                    b = confirmedBlk - 1; // rewind: loop increment will restart from confirmedBlk
+                                    continue;
+                                } else {
+                                    const errNames = { 1: 'Packet Loss', 2: 'CRC Error', 3: 'Buffer Overflow' };
+                                    throw new Error(`Device reported upload error ${errCode} (${errNames[errCode] || 'Unknown'}) at block ${b} after ${MAX_RETRIES} retries (confirmed: ${confirmedOff} B)`);
+                                }
+                            } else {
+                                retryCount = 0; // successfully confirmed up to here
+                            }
+                        }
+                    }
+
+                    if (b % 16 === 0 || isLastBlock) {
+                        const totalProg = Math.floor(((b + 1) / totalBlocks) * 100);
+                        progressFill.style.width = `${totalProg}%`;
+                        const currBytes = Math.min((b + 1) * 16, pkg.length);
+                        const elapsedSec = (Date.now() - streamStartTime) / 1000;
+                        const rateKB = elapsedSec > 0 ? (currBytes / 1024 / elapsedSec).toFixed(1) : '0.0';
+                        statusEl.innerText = `Streaming package: ${currBytes}/${pkg.length} B (${totalProg}%, ${rateKB} KB/s)`;
+                    }
+                }
+
+                // Commit Upload: CMD 0x15 <auto_display> <has_red>
+                statusEl.innerText = 'Committing image to flash...';
+                log('Flushing RAM buffer to flash & committing slot...');
+                const autoDisplay = document.getElementById('chkAutoDisplay').checked;
+                const commitCmd = new Uint8Array([0x15, autoDisplay ? 1 : 0, (hasRed && compRed) ? 1 : 0]);
+                await writeEpdCmd(commitCmd);
+
+                const totalTimeSec = ((Date.now() - streamStartTime) / 1000).toFixed(1);
+                const avgSpeedKB = totalTimeSec > 0 ? (pkg.length / 1024 / totalTimeSec).toFixed(1) : '0.0';
+                progressFill.style.width = '100%';
+                statusEl.innerText = `Upload Complete! Slot ${slot} saved (${totalPackageSize} B in ${totalTimeSec}s, ${avgSpeedKB} KB/s).`;
+                log(`Successfully uploaded compressed image to Slot ${slot} (${totalPackageSize} B in ${totalTimeSec}s, avg ${avgSpeedKB} KB/s, hasRed=${hasRed && compRed ? 1 : 0}).`);
+                await queryStatus();
+            } catch (err) {
+                log(`Image upload error: ${err.message || err}`);
+                statusEl.innerText = `Upload failed: ${err.message || err}`;
+            } finally {
+                btnUpload.disabled = false;
+            }
+        }
+
+        // Fetch image from Flash Slot over BLE
+        async function fetchImageFromSlot() {
+            if (!epdCmdChar) {
+                alert('Device is not connected.');
+                return;
+            }
+
+            const cfg = DEVICE_CONFIGS[currentModel];
+            const slot = parseInt(document.getElementById('targetFetchSlot').value, 10);
+            const btnFetch = document.getElementById('btnFetchImage');
+            btnFetch.disabled = true;
+            const progressContainer = document.getElementById('imgProgressContainer');
+            progressContainer.style.display = 'block';
+            const progressFill = document.getElementById('imgFill');
+            const statusEl = document.getElementById('imgStatus');
+
+            try {
+                const sObj = cfg.slots.find(s => s.id === slot);
+                log(`Fetching ${sObj ? `${sObj.name} (${sObj.desc})` : 'Slot ' + slot} from tag...`);
+
+                const maxBufSize = Math.max(cfg.planeSize, cfg.maxSlotSize, 16384);
+                const rawBuffer = new Uint8Array(maxBufSize);
+                let totalBytesReceived = 0;
+                let expectedTotal = 0;
+
+                await new Promise(async (resolve, reject) => {
+                    let timeoutHandle = null;
+                    const resetTimeout = () => {
+                        if (timeoutHandle) clearTimeout(timeoutHandle);
+                        timeoutHandle = setTimeout(() => {
+                            streamFetchHandler = null;
+                            reject(new Error(`Timeout streaming Slot ${slot} from tag`));
+                        }, 6000);
+                    };
+
+                    streamFetchHandler = (val) => {
+                        if (!val || val.length < 6 || val[0] !== 0x86) return;
+                        const respSlot = val[1];
+                        if (respSlot !== slot) return;
+
+                        resetTimeout();
+                        const offset = val[3] | (val[4] << 8);
+                        const len = val[5];
+
+                        if (len === 0) {
+                            // EOF marker received
+                            expectedTotal = offset;
+                            streamFetchHandler = null;
+                            if (timeoutHandle) clearTimeout(timeoutHandle);
+                            resolve();
+                            return;
+                        }
+
+                        if (offset + len <= maxBufSize) {
+                            rawBuffer.set(val.subarray(6, 6 + len), offset);
+                            totalBytesReceived = Math.max(totalBytesReceived, offset + len);
+                            const estTotal = expectedTotal || (offset + len + 100);
+                            const pct = Math.min(99, Math.floor((totalBytesReceived / estTotal) * 100));
+                            progressFill.style.width = `${pct}%`;
+                            statusEl.innerText = `Streaming Slot ${slot}: ${totalBytesReceived} B...`;
+                        }
+                    };
+
+                    resetTimeout();
+                    try {
+                        // Request autonomous stream fetch: 0x16 <slot> 0
+                        await epdCmdChar.writeValue(new Uint8Array([0x16, slot, 0]));
+                    } catch (err) {
+                        if (timeoutHandle) clearTimeout(timeoutHandle);
+                        streamFetchHandler = null;
+                        reject(err);
+                    }
+                });
+
+                statusEl.innerText = `Data received (${totalBytesReceived} B). Parsing image...`;
+                log(`Fetched ${totalBytesReceived} bytes for Slot ${slot}.`);
+
+                if (totalBytesReceived < 16) {
+                    if (totalBytesReceived === 0 || (rawBuffer[0] === 0xFF && rawBuffer[1] === 0xFF)) {
+                        alert(`Slot ${slot} appears to be empty or unprogrammed.`);
+                        return;
+                    }
+                }
+
+                // Check for compression header magic: 0x5A42
+                const magic = rawBuffer[0] | (rawBuffer[1] << 8);
+                if (magic === 0x5A42) {
+                    const version = rawBuffer[2];
+                    const flags = rawBuffer[3];
+                    const hasRed = (flags & 1) !== 0;
+                    const w = rawBuffer[4] | (rawBuffer[5] << 8);
+                    const h = rawBuffer[6] | (rawBuffer[7] << 8);
+                    const bwCompLen = rawBuffer[8] | (rawBuffer[9] << 8);
+                    const redCompLen = rawBuffer[10] | (rawBuffer[11] << 8);
+
+                    log(`Decoded compressed header: magic=0x5A42, v=${version}, ${w}x${h}, BWR=${hasRed}, BW_Len=${bwCompLen}B, Red_Len=${redCompLen}B`);
+
+                    if (16 + bwCompLen > totalBytesReceived) {
+                        throw new Error(`Incomplete BW compressed payload (expected ${bwCompLen} B, got ${totalBytesReceived - 16} B)`);
+                    }
+
+                    const bwCompData = rawBuffer.subarray(16, 16 + bwCompLen);
+                    const bwPlane = decompressPlane2DDelta(bwCompData, cfg.lineBytes, cfg.totalLines);
+
+                    let redPlane = null;
+                    if (hasRed && redCompLen > 0) {
+                        if (16 + bwCompLen + redCompLen > totalBytesReceived) {
+                            throw new Error(`Incomplete Red compressed payload (expected ${redCompLen} B)`);
+                        }
+                        const redCompData = rawBuffer.subarray(16 + bwCompLen, 16 + bwCompLen + redCompLen);
+                        redPlane = decompressPlane2DDelta(redCompData, cfg.lineBytes, cfg.totalLines);
+                    }
+
+                    planesToCanvas(bwPlane, redPlane);
+                    progressFill.style.width = '100%';
+                    statusEl.innerText = `Slot ${slot} decompressed and rendered!`;
+                    log(`Rendered Slot ${slot} to canvas (${hasRed ? 'BWR' : 'BW'}).`);
+                } else if (slot === 0 || slot === cfg.slots[cfg.slots.length - 1].id || totalBytesReceived === cfg.planeSize) {
+                    // Slot 0 (Dynamic Info) or Blank Slot or raw uncompressed bitmap
+                    const bwPlane = rawBuffer.subarray(0, cfg.planeSize);
+                    planesToCanvas(bwPlane, null);
+                    progressFill.style.width = '100%';
+                    statusEl.innerText = `Slot ${slot} rendered (raw bitmap)!`;
+                    log(`Rendered Slot ${slot} raw bitmap to canvas.`);
+                } else {
+                    let isAllFF = true;
+                    for (let i = 0; i < Math.min(totalBytesReceived, 64); i++) {
+                        if (rawBuffer[i] !== 0xFF) { isAllFF = false; break; }
+                    }
+                    if (isAllFF) {
+                        alert(`Slot ${slot} is empty (erased).`);
+                    } else {
+                        alert(`Slot ${slot} data is uncompressed or unknown format (magic: 0x${magic.toString(16)}).`);
+                    }
+                }
+            } catch (err) {
+                log(`Fetch error: ${err.message || err}`);
+                statusEl.innerText = `Fetch failed: ${err.message || err}`;
+            } finally {
+                streamFetchHandler = null;
+                btnFetch.disabled = false;
+            }
+        }
+
+        /* =========================================================================
+           Telink BLE Wireless OTA Flasher
+           ========================================================================= */
+        function crc16_modbus(buffer) {
+            let crc = 0xFFFF;
+            for (let i = 0; i < buffer.length; i++) {
+                crc ^= buffer[i];
+                for (let j = 0; j < 8; j++) {
+                    if (crc & 0x0001) crc = (crc >> 1) ^ 0xA001;
+                    else crc >>= 1;
+                }
+            }
+            return crc;
+        }
+
+        function processFirmwareBytes(bytes, name) {
+            const infoEl = document.getElementById('fwInfo');
+
+            if (bytes.length < 4096 || bytes.length > 200000) {
+                alert('Invalid firmware file size: must be between 4 KB and 192 KB.');
+                return false;
+            }
+
+            // Verify TLSR magic header ('TLNK' at offset 8)
+            const isTlnk = (bytes[8] === 0x4b && bytes[9] === 0x4e && bytes[10] === 0x4c && bytes[11] === 0x54) ||
+                           (bytes[8] === 0x54 && bytes[9] === 0x4c && bytes[10] === 0x4e && bytes[11] === 0x4b);
+
+            if (!isTlnk) {
+                alert('Warning: File header signature "TLNK" not found. Please ensure this is a valid TLSR825x binary.');
+                return false;
+            }
+
+            // Pad firmware to multiple of 16 bytes with 0xFF
+            let padded = bytes;
+            if (bytes.length % 16 !== 0) {
+                const padLen = 16 - (bytes.length % 16);
+                padded = new Uint8Array(bytes.length + padLen);
+                padded.set(bytes);
+                padded.fill(0xFF, bytes.length);
+            }
+
+            otaFirmwareBuffer = padded;
+            infoEl.style.display = 'block';
+            infoEl.innerHTML = `File: <strong>${name}</strong> (${(padded.length / 1024).toFixed(1)} KB, ${padded.length / 16} blocks) ✅ Validated`;
+            if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+                document.getElementById('btnStartOta').disabled = false;
+            }
+            log(`Loaded OTA firmware: ${name} (${padded.length} bytes, ${padded.length / 16} blocks)`);
+            return true;
+        }
+
+        function handleFileSelected(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                processFirmwareBytes(new Uint8Array(e.target.result), file.name);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function fetchLatestFirmware() {
+            try {
+                const cfg = DEVICE_CONFIGS[currentModel];
+                const fwFileName = cfg?.fwFile || 'tlsr-epaper-xl3na.bin';
+                log(`Fetching latest firmware build (${fwFileName}) from server...`);
+                let res = await fetch(`../bin/${fwFileName}?t=` + Date.now());
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const buf = await res.arrayBuffer();
+                processFirmwareBytes(new Uint8Array(buf), `${fwFileName} (Server Build)`);
+            } catch (e) {
+                log(`Failed to fetch firmware: ${e.message}`);
+            }
+        }
+
+        async function startOtaFlashing() {
+            if (!otaChar || !otaFirmwareBuffer) return;
+            const btnOta = document.getElementById('btnStartOta');
+            btnOta.disabled = true;
+
+            const blockCount = otaFirmwareBuffer.length / 16;
+            const startTime = Date.now();
+            const requestedChunkK = parseInt(document.getElementById('otaChunkSize')?.value || '16', 10);
+
+            log(`Starting Telink BLE OTA firmware update (${otaFirmwareBuffer.length} bytes, ${blockCount} blocks, proposed chunk: ${requestedChunkK} KB)...`);
+            document.getElementById('otaStatus').innerText = 'Negotiating OTA mode & chunk size...';
+
+            try {
+                // 1. Send CMD_OTA_START handshake (0xFF01)
+                log(`Sending CMD_OTA_START (0xFF01, proposed chunk ${requestedChunkK} KB)...`);
+                await otaChar.writeValueWithoutResponse(new Uint8Array([0x01, 0xFF, requestedChunkK]));
+                await new Promise(r => setTimeout(r, 200));
+
+                const initResp = await otaChar.readValue();
+                let acceptedChunkK = requestedChunkK;
+
+                if (initResp.byteLength >= 6) {
+                    acceptedChunkK = initResp.getUint8(4);
+                    const errCode = initResp.getUint8(3);
+                    if (errCode !== 0) {
+                        throw new Error(`Device reported OTA init error code ${errCode}`);
+                    }
+                }
+
+                if (!acceptedChunkK || acceptedChunkK < 4) {
+                    acceptedChunkK = 16;
+                }
+                log(`Handshake OK: Device accepted ${acceptedChunkK} KB RAM cache chunk`);
+
+                const chunkBlocks = acceptedChunkK * 64;
+                document.getElementById('otaStatus').innerText = `Streaming blocks (${acceptedChunkK} KB RAM cache)...`;
+
+                const FLOW_SYNC_BLOCKS = 32;
+
+                async function safeReadTelemetry(retries = 3) {
+                    for (let attempt = 0; attempt < retries; attempt++) {
+                        try {
+                            return await otaChar.readValue();
+                        } catch (err) {
+                            if (attempt === retries - 1) throw err;
+                            log(`GATT read retry ${attempt + 1}/${retries} after transient issue: ${err.message || err}`);
+                            await new Promise(r => setTimeout(r, 60));
+                        }
+                    }
+                }
+
+                for (let blockNr = 0; blockNr < blockCount; blockNr++) {
+                    if (!otaChar || !bluetoothDevice || !bluetoothDevice.gatt.connected) {
+                        throw new Error(`Device disconnected during flashing at block ${blockNr}/${blockCount}`);
+                    }
+
+                    const blockData = otaFirmwareBuffer.subarray(blockNr * 16, blockNr * 16 + 16);
+                    const pkt = new Uint8Array(20);
+
+                    pkt[0] = blockNr & 0xFF;
+                    pkt[1] = (blockNr >> 8) & 0xFF;
+                    pkt.set(blockData, 2);
+
+                    const crc = crc16_modbus(pkt.subarray(0, 18));
+                    pkt[18] = crc & 0xFF;
+                    pkt[19] = (crc >> 8) & 0xFF;
+
+                    await otaChar.writeValueWithoutResponse(pkt);
+                    await new Promise(r => setTimeout(r, 2));
+
+                    const isFlowSync = ((blockNr + 1) % FLOW_SYNC_BLOCKS === 0);
+                    const isChunkBoundary = ((blockNr + 1) % chunkBlocks === 0);
+                    const isLastBlock = (blockNr === blockCount - 1);
+
+                    if (isFlowSync || isChunkBoundary || isLastBlock) {
+                        const telemetry = await safeReadTelemetry();
+                        if (telemetry.byteLength >= 4) {
+                            const confirmedBlk = telemetry.getUint16(0, true);
+                            const committedSec = telemetry.getUint8(2);
+                            const errCode = telemetry.getUint8(3);
+
+                            if (errCode !== 0) {
+                                const errNames = { 1: 'Packet Loss', 2: 'CRC Error', 3: 'Write Error', 4: 'Incomplete', 5: 'Timeout' };
+                                throw new Error(`Device reported OTA error ${errCode} (${errNames[errCode] || 'Unknown'}) at block ${confirmedBlk}`);
+                            }
+
+                            if (confirmedBlk !== (blockNr + 1)) {
+                                throw new Error(`Sync mismatch: device confirmed block ${confirmedBlk}, expected ${blockNr + 1}`);
+                            }
+                        }
+                    }
+
+                    if (blockNr % 64 === 0 || isChunkBoundary || isLastBlock) {
+                        const pct = Math.floor(((blockNr + 1) / blockCount) * 100);
+                        document.getElementById('otaFill').style.width = `${pct}%`;
+                        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                        const speed = ((((blockNr + 1) * 16) / 1024) / (elapsed > 0 ? elapsed : 1)).toFixed(1);
+                        document.getElementById('otaStatus').innerText = `Flashing: ${blockNr + 1}/${blockCount} (${pct}%) - ${speed} KB/s (${elapsed}s)`;
+                    }
+
+                    if (isChunkBoundary || isLastBlock) {
+                        const pct = Math.floor(((blockNr + 1) / blockCount) * 100);
+                        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                        const speed = ((((blockNr + 1) * 16) / 1024) / (elapsed > 0 ? elapsed : 1)).toFixed(1);
+                        log(`Committed chunk at block ${blockNr + 1}/${blockCount} (${pct}%) - ${speed} KB/s (${elapsed}s)`);
+                    }
+                }
+
+                // 3. Send CMD_OTA_END (0xFF02)
+                log('All chunks committed to flash. Sending CMD_OTA_END (0xFF02)...');
+                const lastIdx = blockCount - 1;
+                const endPkt = new Uint8Array(6);
+                endPkt[0] = 0x02;
+                endPkt[1] = 0xFF;
+                endPkt[2] = lastIdx & 0xFF;
+                endPkt[3] = (lastIdx >> 8) & 0xFF;
+                endPkt[4] = (~lastIdx) & 0xFF;
+                endPkt[5] = ((~lastIdx) >> 8) & 0xFF;
+
+                await otaChar.writeValueWithoutResponse(endPkt);
+
+                document.getElementById('otaFill').style.width = '100%';
+                const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+                document.getElementById('otaStatus').innerText = `OTA Complete! Took ${totalTime}s. Device is rebooting...`;
+                log(`OTA update successfully completed in ${totalTime}s! The ESL is rebooting into new bank.`);
+            } catch (err) {
+                log(`OTA error: ${err.message || err}`);
+                document.getElementById('otaStatus').innerText = 'Flashing failed: ' + (err.message || err);
+                btnOta.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

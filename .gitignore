@@ -1,0 +1,14 @@
+# Build directory
+build/
+
+# Generated binary files and directory
+bin/
+out/
+*.bin
+*.zigbee
+*.o
+*.elf
+*.ld
+
+# Keep stock factory firmware dumps
+!original_firmware/*.bin

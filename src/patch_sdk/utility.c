@@ -1,0 +1,182 @@
+/********************************************************************************************************
+ * @file    utility.c
+ *
+ * @brief   Patched utility implementation for TLSR8258
+ *          Replaces 1024-byte crc32_table with compact bitwise calculation.
+ *******************************************************************************************************/
+#include "tl_common.h"
+#include "proj/common/utility.h"
+
+unsigned int xcrc32(const unsigned char *buf, int len, unsigned int init)
+{
+    unsigned int crc = init;
+    while (len--) {
+        crc ^= *buf++;
+        for (int i = 0; i < 8; i++) {
+            if (crc & 1) {
+                crc = (crc >> 1) ^ 0xEDB88320;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+    return crc;
+}
+
+#ifdef WIN32
+extern u16 my_random(void);
+#endif
+
+#include "app_config.h"
+
+#if DBG_ZIGBEE_STATUS_EN
+_attribute_custom_bss_ volatile u8 T_rfStatusDbg[256];
+u32 T_rfStatusCnt;
+#endif
+
+void generateRandomData(u8 *pData, u8 len)
+{
+    u8 i;
+    for (i = 0; i < 2; i++) {
+#ifdef WIN32
+        *((u16*)pData) = (u16)my_random();
+#else
+        *pData = rand();
+        *(pData + 1) = rand();
+#endif
+    }
+    for (i = 2; i < len; i += 2) {
+#ifdef WIN32
+        *((u16*)(pData + i)) = (u16)my_random();
+#else
+        *((u16*)(pData + i)) = (u16)rand();
+#endif
+    }
+}
+
+u8 addrExtCmp(const u8 * pAddr1, const u8 * pAddr2)
+{
+    for (u8 i = 8; i != 0; i--) {
+        if (*pAddr1++ != *pAddr2++) {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+void freeTimerEvent(void **arg)
+{
+    if (*arg != NULL) {
+#if (__DEBUG_BUFM__)
+        if (SUCCESS != ev_buf_free((u8*)*arg)) {
+            while(1);
+        }
+#else
+        ev_buf_free((u8*)*arg);
+#endif
+        *arg = NULL;
+    }
+}
+
+void freeTimerTask(void **arg)
+{
+    if (*arg == NULL) {
+        return;
+    }
+}
+
+void swapN(unsigned char *p, int n)
+{
+    for (int i = 0; i < n / 2; i++) {
+        int c = p[i];
+        p[i] = p[n - 1 - i];
+        p[n - 1 - i] = c;
+    }
+}
+
+void swapX(const u8 *src, u8 *dst, int len)
+{
+    for (int i = 0; i < len; i++) {
+        dst[len - 1 - i] = src[i];
+    }
+}
+
+void swap24(u8 dst[3], const u8 src[3])  { swapX(src, dst, 3); }
+void swap32(u8 dst[4], const u8 src[4])  { swapX(src, dst, 4); }
+void swap48(u8 dst[7], const u8 src[7])  { swapX(src, dst, 6); }
+void swap56(u8 dst[7], const u8 src[7])  { swapX(src, dst, 7); }
+void swap64(u8 dst[8], const u8 src[8])  { swapX(src, dst, 8); }
+void swap128(u8 dst[16], const u8 src[16]) { swapX(src, dst, 16); }
+
+void net_store_16(u8 *buffer, u16 pos, u16 value)
+{
+    buffer[pos++] = value >> 8;
+    buffer[pos++] = value;
+}
+
+void flip_addr(u8 *dest, u8 *src)
+{
+    dest[0] = src[5];
+    dest[1] = src[4];
+    dest[2] = src[3];
+    dest[3] = src[2];
+    dest[4] = src[1];
+    dest[5] = src[0];
+}
+
+void store_16(u8 *buffer, u16 pos, u16 value)
+{
+    buffer[pos++] = value;
+    buffer[pos++] = value >> 8;
+}
+
+void my_fifo_init(my_fifo_t *f, int s, u8 n, u8 *p)
+{
+    f->size = s;
+    f->num = n;
+    f->wptr = 0;
+    f->rptr = 0;
+    f->p = p;
+}
+
+u8* my_fifo_wptr(my_fifo_t *f)
+{
+    if (((f->wptr - f->rptr) & 255) < f->num) {
+        return f->p + (f->wptr & (f->num - 1)) * f->size;
+    }
+    return 0;
+}
+
+void my_fifo_next(my_fifo_t *f)
+{
+    f->wptr++;
+}
+
+int my_fifo_push(my_fifo_t *f, u8 *p, int n)
+{
+    if (((f->wptr - f->rptr) & 255) >= f->num) {
+        return -1;
+    }
+    if (n >= f->size) {
+        return -1;
+    }
+    u8 *pd = f->p + (f->wptr++ & (f->num - 1)) * f->size;
+    *pd++ = n & 0xff;
+    *pd++ = (n >> 8) & 0xff;
+    memcpy(pd, p, n);
+    return 0;
+}
+
+void my_fifo_pop(my_fifo_t *f)
+{
+    f->rptr++;
+}
+
+u8 * my_fifo_get(my_fifo_t *f)
+{
+    if (f->rptr != f->wptr) {
+        u8 *p = f->p + (f->rptr & (f->num - 1)) * f->size;
+        return p;
+    }
+    return 0;
+}
