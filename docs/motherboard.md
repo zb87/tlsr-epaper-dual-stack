@@ -16,7 +16,6 @@ This document provides hardware specifications, component details, pinout tables
 | **Display Colors** | 3-Color: Black, White, Red | 3-Color: Black, White, Red |
 | **Refresh Duration** | ~15.15 s (Full 3-Color BWR OTP Waveform) | ~15.15 s (Full 3-Color BWR OTP Waveform) |
 | **Battery Configuration**| 2× CR2450 Lithium coin cells in parallel (3.0V, ~1,100 mAh) | 4× CR2450 / custom pack (3.0V, ~2,400 mAh) |
-| **Magnetic Sensor** | Proximity reed switch on `PA0` | Proximity reed switch on `PA0` |
 | **Status LEDs** | Red (`PD2`), Green (`PD3`), Blue (`PA7`) | Red (`PD2`), Green (`PD3`), Blue (`PA7`) |
 
 ---
@@ -67,7 +66,6 @@ This document provides hardware specifications, component details, pinout tables
 | **NFC IRQ** | `PC4` | `PC4` | `GPIO_NFC_IRQ` | Active Low interrupt / RF field wake-up |
 | **NFC CS** | `PC6` | `PC6` | `GPIO_NFC_CS` | Active Low chip select / contact power gate |
 | **Battery ADC** | `PB0` | `PB0` | `GPIO_VBAT` | Internal SAR ADC millivolt sampling via VDD |
-| **Reed Switch** | `PA0` | `PA0` | `GPIO_REED` | Magnet proximity sensor |
 
 ---
 
@@ -100,7 +98,7 @@ The motherboards provide solder test pads on the rear of the PCB for wire progra
 │  [ GND ]          Ground Terminal            │
 │  [ PA7 / SWS ]    Telink Single-Wire Slave   │
 │  [ PB1 / TX ]     Debug UART Output (115200) │
-│  [ PA0 ]          Magnetic Reed Switch       │
+│  [ PA0 ]          GPIO PA0 Test Pad (NC)     │
 └──────────────────────────────────────────────┘
 ```
 

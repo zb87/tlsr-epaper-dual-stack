@@ -17,7 +17,6 @@ This document provides a comprehensive technical reverse engineering, architectu
 * **Display Hardware:** $4.2''$ 3-Color (Black, White, Red) Active Matrix Electrophoretic Display (AMEPD), **$400\times 300$** pixel resolution (120 DPI), driven by an UltraChip **UC8176** (compatible with GoodDisplay 4.2" BWR) controller IC, confirmed via internal display geometry descriptor table at Flash `0x03F008` (`44 01 2c 01 90 01 a4 78`, where `0x012C` = 300 height, `0x0190` = 400 width)
 * **NFC Transceiver:** Fudan Microelectronics **FM11NC08** $I^2C$ NFC Tag IC with pre-configured NDEF record
 * **Battery & Power Subsystem:** 4-cell battery pack ($600\,\text{mAh} \times 4$, 3.0V nominal, 2,400 mAh total capacity) with internal SAR ADC voltage monitoring (`adc %dmV`)
-* **Magnetic Sensor:** Proximity Reed Switch on `PA0` (Magnet proximity wake-up and activation, tested by `init reed` routine at `0x0238B0`)
 * **Firmware Architecture:** Multi-Stage Boot System:
   * **Stage 1 (Flash `0x00000`–`0x09730`):** Telink SWS / Hardware Bootloader (`_bin_size_ = 0x9730` / 38,704 bytes)
   * **Stage 2 (Flash `0x0D000`–`0x23FF4`):** Main Hanshow ESL Application (`"hanshow day day up!!!"`, proprietary 2.4 GHz RF star protocol stack, EPD graphics engine, NFC handler)
@@ -49,7 +48,6 @@ graph TD
     subgraph Hardware_IO ["External Peripherals & ESL Board Subsystems"]
         EPD["4.2'' 3-Color E-Paper Display (400x300, 120 DPI)<br>Controller: UC8176 (Horizontal Scanning)<br>SPI: PB4 (CS), PB5 (CLK), PB6 (MOSI)<br>Control: PD4 (RST), PD7 (DC), PA1 (BUSY: Low=Busy)<br>Power Switch: PC5 (Active-Low P-MOSFET)"]
         NFC["Fudan Micro FM11NC08 NFC IC<br>I2C: PC0 (SDA), PC1 (SCL)<br>Interrupt: PC4 (IRQ), CS: PC6"]
-        REED["Magnetic Reed Switch (PA0 / Pull-Up)<br>Magnet Proximity Wakeup & Factory Reset ('init reed')"]
         LED["Status RGB LED Indicator<br>PD2 (Red), PD3 (Green), PA7 (Blue / SWS)"]
         VBAT["Battery Pack Monitor (4x Battery, 3.0V, 2400 mAh)<br>Internal SAR ADC via PB0 / VDD ('adc %dmV')"]
     end
@@ -204,7 +202,6 @@ Flash Offset    Debug / Logging String             System Functionality
 0x0234EC        ret = %2x                          Generic Hardware Return Code Formatter
 0x02351C        0123456789ABCDEF                   Hexadecimal Conversion LUT for RF / Serial Output
 0x0235A0        hellox %d                          ESL Handshake & Link Ping Diagnostic Counter
-0x0238B0        init reed                          Magnetic Reed Switch Sensor Initialization Routine
 0x0238C0        boot start                         Application Cold / Warm Boot Sequence Initiator
 0x0238D0        hanshow day day up!!!              Hanshow Engineering Team Motto / Firmware Signature
 0x023904        analysis                           RF Packet Protocol Analysis / Parser Routine
@@ -254,7 +251,6 @@ Reverse engineering of the stock firmware binaries and hardware testing confirms
 | **NFC I2C SCL** | `PC1` | `0x0202` (PC1) | Output | I2C Serial Clock line (400 kHz fast mode) |
 | **NFC Field Detect IRQ**| `PC4` | `0x0210` (PC4) | Input (Interrupt / Wake) | Generates active-low interrupt on NFC RF field detection |
 | **NFC Chip Select** | `PC6` | `0x0240` (PC6) | Output (Active Low) | Enables FM11NC08 contact interface |
-| **Magnetic Reed Switch**| `PA0` | `0x0001` (PA0) | Input (Pull-Up / Wakeup)| Magnet proximity detector; falling edge wakes tag from sleep (`init reed`) |
 | **Hardware UART TX** | `PB1` | `0x0102` (PB1) | Output (UART TX) | Factory test & serial debug output (`ret = %2x`, `adc %dmV`) |
 | **Battery ADC Monitor** | `PB0` / VDD | Internal SAR ADC | Analog Input | Measures 4-cell battery pack potential ($4\times\text{Cell}$, $3.0\,\text{V}$) |
 

@@ -52,7 +52,7 @@ The ESL tag integrates a **Telink TLSR8258** 32-bit multi-standard wireless SoC 
 | `PD2` | `GPIO_LED_RED`  | Status LED | Error indication | Active-low; 3 blinks indicate I2C communication failure |
 
 > [!IMPORTANT]
-> **No reed switch exists on this hardware.** The Stellar-M3N@ PCB has no magnetic reed switch or Hall sensor. NFC field detection via `PC4` is the **sole physical interaction and external wakeup mechanism** on the ESL.
+> NFC field detection via `PC4` is the **sole physical interaction and external wakeup mechanism** on the ESL.
 
 ### 1.2 LED Status Feedback Summary
 
