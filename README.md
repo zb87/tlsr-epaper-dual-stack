@@ -42,6 +42,7 @@ Detailed pinout tables, schematics, component architectures, and hardware differ
 | **Image Compression** | [docs/user-images.md](docs/user-images.md) | 2D Delta + PackBits compression, headers, and slot layout |
 | **Dynamic Prototyping** | [docs/prototype.md](docs/prototype.md) | Runtime snippet execution and in-memory log ring buffer |
 | **ZHA Integration** | [zha_quirks/README.md](zha_quirks/README.md) | Home Assistant ZHA Quirk setup and automation examples |
+| **Change Log** | [changelog.md](changelog.md) | Firmware release history and changelog |
 
 ---
 

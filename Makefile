@@ -11,7 +11,15 @@ PROJECT_PATH ?= .
 SRC_DIR ?= /src
 SRC_PATH ?= $(PROJECT_PATH)$(SRC_DIR)
 TEL_PATH ?= .
-SDK_PATH ?= ./SDK
+ifneq ($(wildcard ./SDK),)
+	SDK_PATH ?= ./SDK
+else ifneq ($(wildcard ../reference/BZdevice/SDK),)
+	SDK_PATH ?= ../reference/BZdevice/SDK
+else ifneq ($(wildcard ../TLSR825x/reference/BZdevice/SDK),)
+	SDK_PATH ?= ../TLSR825x/reference/BZdevice/SDK
+else
+	SDK_PATH ?= ./SDK
+endif
 SDK_FLAGS := $(SDK_PATH)/stack
 MAKE_PATH ?= ./make
 
@@ -49,6 +57,8 @@ else ifneq ($(TC32_BIN),)
 	TC32_PATH := $(dir $(TC32_BIN))
 else ifneq ($(wildcard ../reference/ATC_TLSR_Paper/Firmware/tc32_linux/bin/tc32-elf-gcc),)
 	TC32_PATH := ../reference/ATC_TLSR_Paper/Firmware/tc32_linux/bin/
+else ifneq ($(wildcard ../TLSR825x/reference/ATC_TLSR_Paper/Firmware/tc32_linux/bin/tc32-elf-gcc),)
+	TC32_PATH := ../TLSR825x/reference/ATC_TLSR_Paper/Firmware/tc32_linux/bin/
 else ifneq ($(wildcard /opt/tc32/bin/tc32-elf-gcc),)
 	TC32_PATH := /opt/tc32/bin/
 else
@@ -105,7 +115,7 @@ INCLUDE_PATHS := -I$(SRC_PATH) -I$(SRC_PATH)/epd -I$(SRC_PATH)/zigbee -I$(SRC_PA
 
 GCC_FLAGS += $(TEL_CHIP) -DBOARD=$(BOARD)
 
-DEBUG ?= 1
+DEBUG ?= 0
 ifeq ($(DEBUG), 1)
 	GCC_FLAGS += -DDEBUG=1 -DDEBUG_MODE=1 -DUART_PRINTF_MODE=1 -DDEBUG_INFO_TX_PIN=GPIO_PB1
 else

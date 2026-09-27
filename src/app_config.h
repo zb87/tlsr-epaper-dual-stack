@@ -102,12 +102,24 @@ enum {
    ========================================================================= */
 
 // Status RGB LEDs (Active Low)
-// Blue: BLE Mode indication
+// Blue: BLE Mode indication (PA7 shared with SWS debug, keep AS_SWIRE default in gpio_default.h)
+#define GPIO_LED_BLUE            GPIO_PA7
+
 // Green: Zigbee Mode indication
-// Red: Error / Warning indication
-#define GPIO_LED_BLUE            GPIO_PA7 // Shared with SWS debug
 #define GPIO_LED_GREEN           GPIO_PD3
+#define PD3_INPUT_ENABLE         0
+#define PD3_OUTPUT_ENABLE        1
+#define PD3_DATA_OUT             1        // Active low: 1 = OFF
+#define PD3_FUNC                 AS_GPIO
+#define PULL_WAKEUP_SRC_PD3      PM_PIN_PULLUP_1M
+
+// Red: Error / Refresh / Warning indication
 #define GPIO_LED_RED             GPIO_PD2
+#define PD2_INPUT_ENABLE         0
+#define PD2_OUTPUT_ENABLE        1
+#define PD2_DATA_OUT             1        // Active low: 1 = OFF
+#define PD2_FUNC                 AS_GPIO
+#define PULL_WAKEUP_SRC_PD2      PM_PIN_PULLUP_1M
 
 // E-Paper Display (2.13" 250x122 BWR - UC8151 / SSD1619)
 #define GPIO_EPD_RESET           GPIO_PD4

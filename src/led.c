@@ -6,9 +6,28 @@ RAM static uint8_t s_led_state = 0;
 
 void led_set(uint8_t mask) {
     s_led_state = mask & LED_ALL;
-    gpio_write(GPIO_LED_RED,   (s_led_state & LED_RED)   ? 0 : 1);
+
+    // Glitch-free write: set output level first, then ensure output buffer is enabled
+    gpio_write(GPIO_LED_RED, (s_led_state & LED_RED) ? 0 : 1);
+    gpio_set_func(GPIO_LED_RED, AS_GPIO);
+    gpio_set_output_en(GPIO_LED_RED, 1);
+
     gpio_write(GPIO_LED_GREEN, (s_led_state & LED_GREEN) ? 0 : 1);
-    gpio_write(GPIO_LED_BLUE,  (s_led_state & LED_BLUE)  ? 0 : 1);
+    gpio_set_func(GPIO_LED_GREEN, AS_GPIO);
+    gpio_set_output_en(GPIO_LED_GREEN, 1);
+
+    // PA7 is shared with SWS: only claim as GPIO output when active
+    if (s_led_state & LED_BLUE) {
+        gpio_write(GPIO_LED_BLUE, 0);
+        gpio_set_func(GPIO_LED_BLUE, AS_GPIO);
+        gpio_set_output_en(GPIO_LED_BLUE, 1);
+        gpio_set_input_en(GPIO_LED_BLUE, 0);
+    } else {
+        gpio_write(GPIO_LED_BLUE, 1);
+        gpio_set_output_en(GPIO_LED_BLUE, 0);
+        gpio_set_func(GPIO_LED_BLUE, AS_SWIRE);
+        gpio_set_input_en(GPIO_LED_BLUE, 1);
+    }
 }
 
 uint8_t led_get_state(void) {
@@ -30,32 +49,20 @@ void led_init(void) {
     gpio_set_output_en(GPIO_LED_GREEN, 1);
     gpio_set_input_en(GPIO_LED_GREEN, 0);
 
-    // Blue LED: PA7 (BLE indicator, shared with SWS)
+    // Blue LED: PA7 (Shared with SWS debug - default to AS_SWIRE with 1M pull-up)
     gpio_setup_up_down_resistor(GPIO_LED_BLUE, PM_PIN_PULLUP_1M);
     gpio_write(GPIO_LED_BLUE, 1); // Active low: 1 = OFF
-    gpio_set_func(GPIO_LED_BLUE, AS_GPIO);
-    gpio_set_output_en(GPIO_LED_BLUE, 1);
-    gpio_set_input_en(GPIO_LED_BLUE, 0);
+    gpio_set_output_en(GPIO_LED_BLUE, 0);
+    gpio_set_func(GPIO_LED_BLUE, AS_SWIRE);
+    gpio_set_input_en(GPIO_LED_BLUE, 1);
 
     s_led_state = 0;
 }
 
 void led_restore_retention(void) {
     if (s_led_state == 0) {
-        return; // Analog 1M pull-ups already hold LED pins HIGH (off)
+        return; // PD2/PD3 already configured by gpio_init(0) and 1M pull-ups hold LEDs HIGH (off)
     }
-    gpio_set_func(GPIO_LED_RED, AS_GPIO);
-    gpio_set_output_en(GPIO_LED_RED, 1);
-    gpio_set_input_en(GPIO_LED_RED, 0);
-
-    gpio_set_func(GPIO_LED_GREEN, AS_GPIO);
-    gpio_set_output_en(GPIO_LED_GREEN, 1);
-    gpio_set_input_en(GPIO_LED_GREEN, 0);
-
-    gpio_set_func(GPIO_LED_BLUE, AS_GPIO);
-    gpio_set_output_en(GPIO_LED_BLUE, 1);
-    gpio_set_input_en(GPIO_LED_BLUE, 0);
-
     led_set(s_led_state);
 }
 

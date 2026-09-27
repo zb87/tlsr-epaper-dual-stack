@@ -10,5 +10,8 @@ out/
 *.elf
 *.ld
 
+# SDK symlink
+SDK
+
 # Keep stock factory firmware dumps
 !original_firmware/*.bin
