@@ -984,7 +984,7 @@ nv_sts_t nv_nwkFrameCountFromFlash(u32 *frameCount){
 	nv_sts_t ret = NV_SUCC;
 	u8 id = NV_MODULE_NWK_FRAME_COUNT;
 	nv_sect_info_t sectInfo;
-	u32 lastFrmCnt;
+	u32 lastFrmCnt = 0;
 	u32 wAddr;
 	u8 opSect = 0;
 
@@ -997,18 +997,12 @@ nv_sts_t nv_nwkFrameCountFromFlash(u32 *frameCount){
 
 	ret = nv_nwkFrameCountSearch(id, opSect, &lastFrmCnt, &wAddr);
 	if(ret == NV_SUCC){
-		*frameCount = lastFrmCnt;
-
-		if(wAddr > FRAMECOUNT_PAYLOAD_START(opSect) + 8){
-			u32 pCnt[2];
-			flash_read(wAddr-8, 8, (u8 *)pCnt);
-
-			if((pCnt[1] - pCnt[0]) > UPDATE_FRAMECOUNT_THRES){
-				/* backoff valid framecount to another sector */
-				*frameCount = pCnt[0]+UPDATE_FRAMECOUNT_THRES;
-				nv_nwkFrameCountSaveToFlashHandler(1, &opSect, pCnt[0]+UPDATE_FRAMECOUNT_THRES);
-			}
-		}
+		/* Zigbee 3.0 standard requirement:
+		 * Advance frame counter on reset/cold boot by at least UPDATE_FRAMECOUNT_THRES (1024),
+		 * and save to NVRAM immediately so subsequent frames are strictly greater than
+		 * any frame transmitted before the reset. We advance by 2048 to provide safe headroom. */
+		*frameCount = lastFrmCnt + (UPDATE_FRAMECOUNT_THRES * 2);
+		nv_nwkFrameCountSaveToFlash(*frameCount);
 	}
 
 	return ret;

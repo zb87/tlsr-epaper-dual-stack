@@ -4,6 +4,25 @@ All notable changes to the TLSR E-Paper Dual-Stack Firmware are documented in th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.0.07] - 2026-09-30
+
+### Fixed
+- **NWK Frame Counter Rollback / `NWK_FRAME_COUNTER_FAILURE` on Cold Boot**:
+  - Resolved an issue where a cold boot or battery swap caused coordinators to reject device transmissions with `NWK_FRAME_COUNTER_FAILURE = 1` or reject rejoins with `0xC3` (`NOT_PERMITTED`).
+  - In Telink B85 Zigbee SDK, `nv_nwkFrameCountFromFlash()` loaded the raw flash counter without accounting for unwritten RAM increments (which are flushed to flash in batches of 1024 frames via `UPDATE_FRAMECOUNT_THRES`).
+  - Updated [`src/patch_sdk/drv_nv.c`](src/patch_sdk/drv_nv.c) to advance the restored frame counter by `UPDATE_FRAMECOUNT_THRES * 2` (2048) and immediately commit it to flash on boot.
+- **Permanent Disconnection from Coordinator Rejoin `0xC3` (`NOT_PERMITTED`) & Insecure Rejoin Fallback**:
+  - Fixed an issue where devices became permanently locked out from the network if a coordinator rebooted with stale security credentials or rejected a secure rejoin with `0xC3`.
+  - Added [`zb_on_rejoin_security_not_permitted()`](src/zigbee/zb_appCb.c) hook in [`src/zigbee/zb_app.c`](src/zigbee/zb_app.c) and [`src/zigbee/zb_app.h`](src/zigbee/zb_app.h) to detect status `0xC3` from `sensorDevice_startDevCnfHandler()` and switch active rejoin mode to `REJOIN_INSECURITY`.
+  - Introduced `zb_issue_rejoin_req()` in [`src/zigbee/zb_appCb.c`](src/zigbee/zb_appCb.c) to cleanly configure `aps_authenticated` and `aps_use_insecure_join` before invoking `zb_rejoinReq`.
+  - Updated `zb_rejoin_backoff_cb()` to alternate between `REJOIN_SECURITY` and `REJOIN_INSECURITY` on every other attempt, allowing recovery under both strict Zigbee 3.0 coordinators and unauthenticated/rebuilt coordinators without requiring a physical factory reset.
+  - Automatically reset rejoin mode to `REJOIN_SECURITY` upon successful commissioning, manual pairing mode entry, or network leave.
+- **Dual-Mode BLE-to-Zigbee Radio Context Recovery (`0xE9` / `MAC_STA_NO_ACK`)**:
+  - Fixed sporadic transmission failures (`0xE9`) occurring after context switches from BLE back to Zigbee.
+  - In [`src/zigbee_ble_switch.c`](src/zigbee_ble_switch.c), updated `switch_to_zb_context()` to mark `CURRENT_SLOT_SET(DUALMODE_SLOT_ZIGBEE)`, select internal 32k RC, reapply the active Zigbee channel frequency (`ZB_TRANSCEIVER_SET_CHANNEL(ch)`), and explicitly place the transceiver into receive mode (`rf_setTrxState(RF_STATE_RX)`).
+
+---
+
 ## [v1.0.06] - 2026-09-27
 
 ### Fixed

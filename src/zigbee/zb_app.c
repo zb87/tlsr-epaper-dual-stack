@@ -99,6 +99,9 @@ static void sensorDevice_startDevCnfHandler(zdo_start_device_confirm_t *pStartDe
         }
         DEBUG_LOG("ZIGBEE", "ZDO Start Device Confirm (status: 0x%02X, short: 0x%04X, pan: 0x%04X, ch: %u)",
                   pStartDevCnf->status, pStartDevCnf->short_addr, pStartDevCnf->pan_id, pStartDevCnf->channel_num);
+        if (pStartDevCnf->status == 0xC3) {
+            zb_on_rejoin_security_not_permitted();
+        }
     }
     bdb_zdoStartDevCnf(pStartDevCnf);
 }

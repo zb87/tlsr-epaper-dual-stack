@@ -26,6 +26,7 @@ void zb_reset_reporting_state(void);
 uint16_t zb_get_pan_id(void);
 uint8_t zb_get_channel(void);
 void zb_send_initial_reports(void);
+void zb_on_rejoin_security_not_permitted(void);
 
 #endif // _ZB_APP_H_
 
