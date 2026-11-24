@@ -16,6 +16,7 @@ void led_set(uint8_t mask) {
     gpio_set_func(GPIO_LED_GREEN, AS_GPIO);
     gpio_set_output_en(GPIO_LED_GREEN, 1);
 
+#if (GPIO_LED_BLUE == GPIO_PA7)
     // PA7 is shared with SWS: only claim as GPIO output when active
     if (s_led_state & LED_BLUE) {
         gpio_write(GPIO_LED_BLUE, 0);
@@ -28,6 +29,11 @@ void led_set(uint8_t mask) {
         gpio_set_func(GPIO_LED_BLUE, AS_SWIRE);
         gpio_set_input_en(GPIO_LED_BLUE, 1);
     }
+#else
+    gpio_write(GPIO_LED_BLUE, (s_led_state & LED_BLUE) ? 0 : 1);
+    gpio_set_func(GPIO_LED_BLUE, AS_GPIO);
+    gpio_set_output_en(GPIO_LED_BLUE, 1);
+#endif
 }
 
 uint8_t led_get_state(void) {
@@ -49,12 +55,21 @@ void led_init(void) {
     gpio_set_output_en(GPIO_LED_GREEN, 1);
     gpio_set_input_en(GPIO_LED_GREEN, 0);
 
+#if (GPIO_LED_BLUE == GPIO_PA7)
     // Blue LED: PA7 (Shared with SWS debug - default to AS_SWIRE with 1M pull-up)
     gpio_setup_up_down_resistor(GPIO_LED_BLUE, PM_PIN_PULLUP_1M);
     gpio_write(GPIO_LED_BLUE, 1); // Active low: 1 = OFF
     gpio_set_output_en(GPIO_LED_BLUE, 0);
     gpio_set_func(GPIO_LED_BLUE, AS_SWIRE);
     gpio_set_input_en(GPIO_LED_BLUE, 1);
+#else
+    // Dedicated Blue LED GPIO (PD4 on Endor 0420)
+    gpio_setup_up_down_resistor(GPIO_LED_BLUE, PM_PIN_PULLUP_1M);
+    gpio_write(GPIO_LED_BLUE, 1); // Active low: 1 = OFF
+    gpio_set_func(GPIO_LED_BLUE, AS_GPIO);
+    gpio_set_output_en(GPIO_LED_BLUE, 1);
+    gpio_set_input_en(GPIO_LED_BLUE, 0);
+#endif
 
     s_led_state = 0;
 }

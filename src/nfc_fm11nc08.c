@@ -4,6 +4,9 @@
 #include "battery.h"
 #include "epd.h"
 #include "nfc_fm11nc08.h"
+
+#if NFC_ENABLED
+
 #include "led.h"
 #include "u_printf.h"
 #include "power_tracker.h"
@@ -1291,4 +1294,42 @@ void nfc_process_events(void) {
         }
     }
 }
+
+#else // !NFC_ENABLED
+
+bool nfc_fm11nc08_init(bool is_cold_boot) {
+    (void)is_cold_boot;
+    return false;
+}
+
+void nfc_fm11nc08_clear_irq(void) {}
+
+bool nfc_fm11nc08_update_telemetry(uint8_t mode, uint8_t slot_idx, uint8_t style,
+                                   uint16_t vbat_mv, uint8_t temp_c, uint16_t refresh_count) {
+    (void)mode; (void)slot_idx; (void)style; (void)vbat_mv; (void)temp_c; (void)refresh_count;
+    return false;
+}
+
+bool nfc_fm11nc08_poll(nfc_cmd_t *cmd) {
+    (void)cmd;
+    return false;
+}
+
+bool nfc_fm11nc08_is_active(void) {
+    return false;
+}
+
+bool nfc_fm11nc08_is_present(void) {
+    return false;
+}
+
+void app_update_nfc_telemetry(void) {}
+
+void nfc_process_events(void) {}
+
+void nfc_fm11nc08_get_debug_log(uint8_t *dst) {
+    (void)dst;
+}
+
+#endif // NFC_ENABLED
 

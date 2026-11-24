@@ -6,6 +6,8 @@
 #include "epd_spi.h"
 #if (BOARD == BOARD_HANSHOW_E31PA)
 #include "epd_bwr_420.h"
+#elif (BOARD == BOARD_ENDOR_0420)
+#include "epd_bwr_420_ssd1683.h"
 #else
 #include "epd_bwr_213.h"
 #endif
@@ -30,6 +32,8 @@ uint8_t epd_read_temp(void) {
     }
 #if (BOARD == BOARD_HANSHOW_E31PA)
     epd_temperature = EPD_BWR_420_read_temp();
+#elif (BOARD == BOARD_ENDOR_0420)
+    epd_temperature = EPD_SSD1683_read_temp();
 #else
     epd_temperature = EPD_BWR_213_read_temp();
 #endif
@@ -39,6 +43,8 @@ uint8_t epd_read_temp(void) {
 void epd_set_sleep(void) {
 #if (BOARD == BOARD_HANSHOW_E31PA)
     EPD_BWR_420_set_sleep();
+#elif (BOARD == BOARD_ENDOR_0420)
+    EPD_SSD1683_set_sleep();
 #else
     // Exit partial window mode if active
     EPD_WriteCmd(0x92); // PTOUT: Partial Out
@@ -59,7 +65,7 @@ void epd_set_sleep(void) {
 
     EPD_POWER_OFF();
     EPD_isolate_pins();
-    cpu_set_gpio_wakeup(GPIO_EPD_BUSY, Level_High, 0);
+    cpu_set_gpio_wakeup(GPIO_EPD_BUSY, EPD_BUSY_WAKEUP_LEVEL, 0);
     epd_update_state = 0;
     led_off(LED_RED); // Turn off Red LED when refresh completes
 }
@@ -73,13 +79,11 @@ uint8_t epd_state_handler(void) {
     if (epd_update_state == 1) {
         uint32_t elapsed_32k = pm_get_32k_tick() - epd_refresh_start_32k_tick;
 
-        // BUSY (PA1) is LOW during refresh, goes HIGH when refresh completes.
         // Full BWR refresh takes 15-18 seconds. Require at least 10,000ms (10 * 32000 ticks)
         // before declaring refresh completion to avoid premature cutoff.
-        // Note: gpio_read(GPIO_EPD_BUSY) returns 0 or 2 (BIT(1)), NEVER 1!
-        if (elapsed_32k >= (10 * 32000) && gpio_read(GPIO_EPD_BUSY) != 0) {
+        if (elapsed_32k >= (10 * 32000) && !EPD_IS_BUSY()) {
             uint32_t elapsed_ms = (elapsed_32k * 1000) / 32000;
-            DEBUG_LOG("EPD", "Refresh DONE in %u ms (BUSY high). Sleeping panel.", (unsigned int)elapsed_ms);
+            DEBUG_LOG("EPD", "Refresh DONE in %u ms (BUSY idle). Sleeping panel.", (unsigned int)elapsed_ms);
             debug_uart_flush();
             epd_set_sleep();
         } else if (elapsed_32k >= (35 * 32000)) {
@@ -251,6 +255,12 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
         epd_render_info_slot();
     }
     EPD_BWR_420_start_dtm1();
+#elif (BOARD == BOARD_ENDOR_0420)
+    EPD_SSD1683_init();
+    if (slot_idx == EPD_SLOT_INFO) {
+        epd_render_info_slot();
+    }
+    EPD_SSD1683_start_dtm1();
 #else
     gpio_write(GPIO_EPD_RESET, 0);
     epd_delay_ms(10);
@@ -356,6 +366,8 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
         // ---------------------------------------------------------------------
 #if (BOARD == BOARD_HANSHOW_E31PA)
         EPD_BWR_420_start_dtm2();
+#elif (BOARD == BOARD_ENDOR_0420)
+        EPD_SSD1683_start_dtm2();
 #else
         EPD_WriteCmd(0x13);
 #endif
@@ -441,6 +453,8 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
         // Stream DTM2 for Info / Blank
 #if (BOARD == BOARD_HANSHOW_E31PA)
         EPD_BWR_420_start_dtm2();
+#elif (BOARD == BOARD_ENDOR_0420)
+        EPD_SSD1683_start_dtm2();
 #else
         EPD_WriteCmd(0x13);
 #endif
@@ -487,6 +501,8 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
     // -------------------------------------------------------------------------
 #if (BOARD == BOARD_HANSHOW_E31PA)
     EPD_BWR_420_refresh();
+#elif (BOARD == BOARD_ENDOR_0420)
+    EPD_SSD1683_refresh();
 #else
     EPD_WriteCmd(0x12); // DRF
     unsigned long t0 = clock_time();

@@ -307,6 +307,7 @@
                     <select id="selDeviceModel" onchange="setDeviceModel(this.value)" style="background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 6px 10px; font-size: 12px; outline: none; cursor: pointer;">
                         <option value="TLSR-M3Na-E31HA" selected>Stellar-M3N@ / E31HA (2.13" 250x122)</option>
                         <option value="TLSR-XL3Na-E31PA">Stellar-XL3N@ / E31PA (4.2" 400x300)</option>
+                        <option value="TLSR-Endor-0420">BLOZI Endor 0420 (4.2" 400x300)</option>
                     </select>
                 </div>
                 <label id="lblAllDevices" style="font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; cursor: pointer;">
@@ -796,6 +797,42 @@
                     { id: 4, label: 'Slot 4 (User Image 4)' },
                     { id: 5, label: 'Slot 5 (Blank White)' },
                 ]
+            },
+            'TLSR-Endor-0420': {
+                name: 'BLOZI Endor 0420',
+                desc: 'BLOZI Endor 0420 (Dual Zigbee 3.0 + BLE 5.0 Stack) - 4.2" 400x300 BWR (SSD1683)',
+                width: 400,
+                height: 300,
+                planeSize: 15000,
+                lineBytes: 50,
+                totalLines: 300,
+                maxSlotSize: 8192,
+                canvasStyle: 'max-width: 500px; width: 100%; height: auto; aspect-ratio: 400/300;',
+                previewText: 'Display preview: 400 × 300 pixels (1:1 native view for 4.2" display)',
+                studioTitle: '🎨 Tri-Color E-Paper Image Studio (400 × 300)',
+                fwFile: 'tlsr-epaper-endor0420.bin',
+                slots: [
+                    { id: 0, name: 'Slot 0', desc: 'Info Page' },
+                    { id: 1, name: 'Slot 1', desc: 'User 1 (8KB)' },
+                    { id: 2, name: 'Slot 2', desc: 'User 2 (8KB)' },
+                    { id: 3, name: 'Slot 3', desc: 'User 3 (8KB)' },
+                    { id: 4, name: 'Slot 4', desc: 'User 4 (8KB)' },
+                    { id: 5, name: 'Slot 5', desc: 'Blank (White)' },
+                ],
+                uploadSlots: [
+                    { id: 1, label: 'Slot 1 (User Image 1, 8KB)' },
+                    { id: 2, label: 'Slot 2 (User Image 2, 8KB)' },
+                    { id: 3, label: 'Slot 3 (User Image 3, 8KB)' },
+                    { id: 4, label: 'Slot 4 (User Image 4, 8KB)' },
+                ],
+                fetchSlots: [
+                    { id: 0, label: 'Slot 0 (Info Page)' },
+                    { id: 1, label: 'Slot 1 (User Image 1)' },
+                    { id: 2, label: 'Slot 2 (User Image 2)' },
+                    { id: 3, label: 'Slot 3 (User Image 3)' },
+                    { id: 4, label: 'Slot 4 (User Image 4)' },
+                    { id: 5, label: 'Slot 5 (Blank White)' },
+                ]
             }
         };
 
@@ -995,6 +1032,8 @@
                     log(`Detected hardware model from device: "${modelStr}"`);
                     if (modelStr.includes('XL3') || modelStr.includes('E31PA')) {
                         setDeviceModel('TLSR-XL3Na-E31PA');
+                    } else if (modelStr.includes('Endor') || modelStr.includes('0420')) {
+                        setDeviceModel('TLSR-Endor-0420');
                     } else if (modelStr.includes('M3') || modelStr.includes('E31HA')) {
                         setDeviceModel('TLSR-M3Na-E31HA');
                     }
@@ -1825,7 +1864,7 @@
             const redPlane = new Uint8Array(planeSize).fill(0x00); // 1 = Red, 0 = Non-red
             let hasRed = false;
 
-            if (currentModel === 'TLSR-XL3Na-E31PA') {
+            if (currentModel === 'TLSR-XL3Na-E31PA' || currentModel === 'TLSR-Endor-0420') {
                 // Native horizontal 400x300, 50 bytes per line (MSB on the left)
                 for (let y = 0; y < h; y++) {
                     for (let x = 0; x < w; x++) {
@@ -1893,7 +1932,7 @@
             const imgData = ctx.createImageData(w, h);
             const d = imgData.data;
 
-            if (currentModel === 'TLSR-XL3Na-E31PA') {
+            if (currentModel === 'TLSR-XL3Na-E31PA' || currentModel === 'TLSR-Endor-0420') {
                 for (let y = 0; y < h; y++) {
                     for (let x = 0; x < w; x++) {
                         const byteIdx = y * 50 + (x >> 3);

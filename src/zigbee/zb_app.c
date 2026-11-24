@@ -7,6 +7,7 @@
 #include "app_config.h"
 #include "flash_eep.h"
 #include "epd.h"
+#include "epd_spi.h"
 #include "nfc_fm11nc08.h"
 #include "battery.h"
 #include "led.h"
@@ -405,7 +406,10 @@ bool zb_is_idle(void) {
 void zb_pm_task(void) {
     // 1. Never sleep while pairing, identify, NFC, pending mode switch, or active OTA are running
     if (zb_is_pairing() || (g_zcl_identifyAttrs.identifyTime > 0) ||
-        nfc_fm11nc08_is_active() || !gpio_read(GPIO_NFC_IRQ) || s_pending_mode_switch || zb_is_ota_active()) {
+#if NFC_ENABLED
+        nfc_fm11nc08_is_active() || !gpio_read(GPIO_NFC_IRQ) ||
+#endif
+        s_pending_mode_switch || zb_is_ota_active()) {
         if (epd_is_busy()) {
             s_epd_was_busy = true;
         }
@@ -424,13 +428,18 @@ void zb_pm_task(void) {
             if (timerEvt && timerEvt->timeout > 0 && timerEvt->timeout < sleepTime) {
                 sleepTime = timerEvt->timeout;
             }
+#if NFC_ENABLED
             if (sleepTime > 0 && gpio_read(GPIO_NFC_IRQ)) {
                 debug_uart_flush();
                 cpu_set_gpio_wakeup(GPIO_NFC_IRQ, Level_Low, 1);
-                if (gpio_read(GPIO_EPD_BUSY) == 0) {
-                    cpu_set_gpio_wakeup(GPIO_EPD_BUSY, Level_High, 1);
+#else
+            if (sleepTime > 0) {
+                debug_uart_flush();
+#endif
+                if (EPD_IS_BUSY()) {
+                    cpu_set_gpio_wakeup(GPIO_EPD_BUSY, EPD_BUSY_WAKEUP_LEVEL, 1);
                 } else {
-                    cpu_set_gpio_wakeup(GPIO_EPD_BUSY, Level_High, 0);
+                    cpu_set_gpio_wakeup(GPIO_EPD_BUSY, EPD_BUSY_WAKEUP_LEVEL, 0);
                 }
                 rf_paShutDown();
                 power_tracker_on_sleep();
@@ -438,7 +447,7 @@ void zb_pm_task(void) {
                              clock_time() + sleepTime * 1000 * S_TIMER_CLOCK_1US);
                 mac_phyReconfig();
                 rf_setTrxState(RF_STATE_OFF);
-                cpu_set_gpio_wakeup(GPIO_EPD_BUSY, Level_High, 0);
+                cpu_set_gpio_wakeup(GPIO_EPD_BUSY, EPD_BUSY_WAKEUP_LEVEL, 0);
                 power_tracker_on_wake();
             }
             drv_restore_irq(r);
@@ -456,7 +465,9 @@ void zb_pm_task(void) {
     if (!zb_isDeviceJoinedNwk()) {
         if (zb_is_idle()) {
             debug_uart_flush();
+#if NFC_ENABLED
             cpu_set_gpio_wakeup(GPIO_NFC_IRQ, Level_Low, 1);
+#endif
             ev_timer_event_t *nearestEvt = ev_timer_nearestGet();
             if (nearestEvt && nearestEvt->timeout > 0) {
                 power_tracker_on_sleep();
@@ -508,7 +519,9 @@ void zb_pm_task(void) {
         }
 
         debug_uart_flush();
+#if NFC_ENABLED
         cpu_set_gpio_wakeup(GPIO_NFC_IRQ, Level_Low, 1);
+#endif
         power_tracker_on_sleep();
         drv_pm_lowPowerEnter();
     }

@@ -69,7 +69,9 @@ int main(void) {
         }
 
         epd_init();
+#if NFC_ENABLED
         nfc_fm11nc08_init(true);
+#endif
 
         // Render initial screen slot
         epd_display_slot(settings.active_slot, settings.render_style);
@@ -81,6 +83,7 @@ int main(void) {
         led_restore_retention();
         if (epd_update_state == 1) {
             // Restore EPD power gate and pins during active screen refresh in retention mode
+#ifdef GPIO_EPD_PWR_ENABLE
             gpio_set_func(GPIO_EPD_PWR_ENABLE, AS_GPIO);
             gpio_set_output_en(GPIO_EPD_PWR_ENABLE, 1);
             gpio_set_input_en(GPIO_EPD_PWR_ENABLE, 0);
@@ -89,6 +92,7 @@ int main(void) {
             gpio_setup_up_down_resistor(GPIO_EPD_PWR_ENABLE, PM_PIN_UP_DOWN_FLOAT);
 #else
             gpio_setup_up_down_resistor(GPIO_EPD_PWR_ENABLE, PM_PIN_PULLDOWN_100K);
+#endif
 #endif
 
             gpio_set_func(GPIO_EPD_RESET, AS_GPIO);
@@ -104,16 +108,18 @@ int main(void) {
             gpio_set_func(GPIO_EPD_BUSY, AS_GPIO);
             gpio_set_output_en(GPIO_EPD_BUSY, 0);
             gpio_set_input_en(GPIO_EPD_BUSY, 1);
-#if (BOARD == BOARD_HANSHOW_E31PA)
+#if EPD_IS_420
             gpio_setup_up_down_resistor(GPIO_EPD_BUSY, PM_PIN_UP_DOWN_FLOAT);
 #else
             gpio_setup_up_down_resistor(GPIO_EPD_BUSY, PM_PIN_PULLUP_1M);
 #endif
         }
+#if NFC_ENABLED
         // Event-gated NFC: only initialize I2C / process NFC if RF field is detected
         if (!gpio_read(GPIO_NFC_IRQ)) {
             nfc_fm11nc08_init(false);
         }
+#endif
     }
 
     if (settings.active_mode == DEVICE_MODE_BLE) {
@@ -128,9 +134,11 @@ int main(void) {
         while (1) {
             ble_task();
             if (!ota_is_working) {
+#if NFC_ENABLED
                 if (!gpio_read(GPIO_NFC_IRQ) || nfc_fm11nc08_is_active()) {
                     nfc_process_events();
                 }
+#endif
                 epd_state_handler();
             }
             ble_pm_task();
@@ -153,9 +161,11 @@ int main(void) {
 
         while (1) {
             zb_task();
+#if NFC_ENABLED
             if (!gpio_read(GPIO_NFC_IRQ) || nfc_fm11nc08_is_active()) {
                 nfc_process_events();
             }
+#endif
             epd_state_handler();
             zb_pm_task();
         }

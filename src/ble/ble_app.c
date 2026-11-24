@@ -31,6 +31,7 @@
 #include "flash_eep.h"
 #include "mode_switch.h"
 #include "epd.h"
+#include "epd_spi.h"
 #include "epd_slots.h"
 #include "epd_prototype.h"
 #include "nfc_fm11nc08.h"
@@ -207,6 +208,9 @@ static const u8 my_ModelStr[] = {"TH03Z"};
 static const u8 my_ManStr[] = {"Tuya"};
 #elif BOARD == BOARD_HANSHOW_E31PA
 static const u8 my_ModelStr[] = {"TLSR-XL3Na-E31PA"};
+static const u8 my_ManStr[] = {"ZB-DIY"};
+#elif BOARD == BOARD_ENDOR_0420
+static const u8 my_ModelStr[] = {"TLSR-Endor-0420"};
 static const u8 my_ManStr[] = {"ZB-DIY"};
 #elif BOARD == BOARD_HANSHOW_E31HA
 static const u8 my_ModelStr[] = {"TLSR-M3Na-E31HA"};
@@ -1222,7 +1226,7 @@ void	user_set_rf_power (u8 e, u8 *p, int n){
 		gpio_set_func(GPIO_EPD_BUSY, AS_GPIO);
 		gpio_set_output_en(GPIO_EPD_BUSY, 0);
 		gpio_set_input_en(GPIO_EPD_BUSY, 1);
-#if (BOARD == BOARD_HANSHOW_E31PA)
+#if EPD_IS_420
 		gpio_setup_up_down_resistor(GPIO_EPD_BUSY, PM_PIN_UP_DOWN_FLOAT);
 #else
 		gpio_setup_up_down_resistor(GPIO_EPD_BUSY, PM_PIN_PULLUP_1M);
@@ -1361,11 +1365,13 @@ static void suspend_enter_callback(u8 e, u8 *p, int n) {
     (void)e; (void)p; (void)n;
     debug_uart_flush();
     power_tracker_on_sleep();
+#if NFC_ENABLED
     cpu_set_gpio_wakeup(GPIO_NFC_IRQ, Level_Low, 1);
-    if (epd_is_busy() && gpio_read(GPIO_EPD_BUSY) == 0) {
-        cpu_set_gpio_wakeup(GPIO_EPD_BUSY, Level_High, 1);
+#endif
+    if (epd_is_busy() && EPD_IS_BUSY()) {
+        cpu_set_gpio_wakeup(GPIO_EPD_BUSY, EPD_BUSY_WAKEUP_LEVEL, 1);
     } else {
-        cpu_set_gpio_wakeup(GPIO_EPD_BUSY, Level_High, 0);
+        cpu_set_gpio_wakeup(GPIO_EPD_BUSY, EPD_BUSY_WAKEUP_LEVEL, 0);
     }
     bls_pm_setWakeupSource(PM_WAKEUP_PAD | PM_WAKEUP_TIMER);
 }
@@ -1385,9 +1391,11 @@ static u8 app_ble_pm_condition(void) {
 	    s_pending_epd_display || s_epd_display_in_progress) {
 		return 0;
 	}
+#if NFC_ENABLED
 	if (nfc_fm11nc08_is_active() || !gpio_read(GPIO_NFC_IRQ)) {
 		return 0;
 	}
+#endif
 	return 1;
 }
 #endif
@@ -1880,10 +1888,14 @@ void ble_pm_task(void) {
 		bls_pm_setSuspendMask(SUSPEND_DISABLE);
 		return;
 	}
+#if NFC_ENABLED
 	if (!nfc_fm11nc08_is_active() && gpio_read(GPIO_NFC_IRQ)) {
 		cpu_set_gpio_wakeup(GPIO_NFC_IRQ, Level_Low, 1);
+#else
+	if (1) {
+#endif
 		if (epd_is_busy()) {
-			cpu_set_gpio_wakeup(GPIO_EPD_BUSY, Level_High, 1);
+			cpu_set_gpio_wakeup(GPIO_EPD_BUSY, EPD_BUSY_WAKEUP_LEVEL, 1);
 			if (device_in_connection_state) {
 				// Use SUSPEND_CONN (keeps digital GPIO drivers latched for EPD power
 				// and red LED at ~35 uA) with a conservative latency of 3 (200 ms).
@@ -1891,7 +1903,7 @@ void ble_pm_task(void) {
 			}
 			bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
 		} else {
-			cpu_set_gpio_wakeup(GPIO_EPD_BUSY, Level_High, 0);
+			cpu_set_gpio_wakeup(GPIO_EPD_BUSY, EPD_BUSY_WAKEUP_LEVEL, 0);
 			bls_pm_setSuspendMask(SUSPEND_ADV | DEEPSLEEP_RETENTION_ADV |
 			                      SUSPEND_CONN | DEEPSLEEP_RETENTION_CONN);
 		}

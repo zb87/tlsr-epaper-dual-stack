@@ -4,6 +4,24 @@ All notable changes to the TLSR E-Paper Dual-Stack Firmware are documented in th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.0.08] - 2026-11-24
+
+### Added
+- **BLOZI Endor 4.2" (`BOARD_ENDOR_0420`) Hardware Support (400×300 BWR, SSD1683, No NFC)**:
+  - Added Solomon Systech `SSD1683` 4.2" display driver ([`src/epd/epd_bwr_420_ssd1683.c`](src/epd/epd_bwr_420_ssd1683.c), [`src/epd/epd_bwr_420_ssd1683.h`](src/epd/epd_bwr_420_ssd1683.h)) with active-high `BUSY` (`PC6`) polling/wakeup (`EPD_IS_BUSY()`, `EPD_BUSY_WAKEUP_LEVEL`), non-inverted red plane (`0x26`), internal temperature readout (`0x1B`), and deep sleep (`0x10`).
+  - Added `BOARD_ENDOR_0420` (`0x43`) pinout and configuration in [`src/app_config.h`](src/app_config.h) and [`src/version_cfg.h`](src/version_cfg.h) (`CS=PB4`, `CLK=PB1`, `MOSI=PA1`, `DC=PC4`, `RST=PC5`, `BUSY=PC6`, RGB LEDs on `PD2`/`PD3`/`PD4`, no EPD power gate MOSFET).
+  - Updated [`src/epd/epd_spi.c`](src/epd/epd_spi.c) `EPD_SPI_Write()` to support `CLK` (`PB1`) and `MOSI` (`PA1`) on separate GPIO ports, [`src/led.c`](src/led.c) to drive dedicated `GPIO_LED_BLUE` (`PD4`) without `AS_SWIRE` sharing, and [`src/debug_uart.c`](src/debug_uart.c) to keep hardware UART off `PB1` on `BOARD_ENDOR_0420`.
+  - Added `NFC_ENABLED` compile-time gating across [`src/nfc_fm11nc08.c`](src/nfc_fm11nc08.c), [`src/patch_sdk/i2c_drv.c`](src/patch_sdk/i2c_drv.c), [`src/main.c`](src/main.c), [`src/ble/ble_app.c`](src/ble/ble_app.c), and [`src/zigbee/zb_app.c`](src/zigbee/zb_app.c) so `PC4`/`PC5`/`PC6` are never claimed by NFC on NFC-less boards.
+  - Added `endor0420` build target in [`Makefile`](Makefile) and [`make/src.mk`](make/src.mk), plus `TLSR-Endor-0420` model entries in [`web/index.html`](web/index.html), [`src/zigbee/zb_version.h`](src/zigbee/zb_version.h), [`zigbee2mqtt/zb-epaper.js`](zigbee2mqtt/zb-epaper.js), and [`zha_quirks/ts_epaper.py`](zha_quirks/ts_epaper.py).
+- **Endor 0420 MAC & Crystal Trim Generator Script**:
+  - Added [`script/init_endor0420_mac.py`](script/init_endor0420_mac.py) to generate an 8 KB factory blob (`/tmp/endor0420_factory_mac.bin`) with a random BLE MAC at `0x76000` and `0x60` crystal trim at `0x77000`, and print `TlsrPgm.py` flashing instructions.
+
+### Changed
+- **Default Boot Mode Changed to BLE**:
+  - Updated [`flash_eep_set_default()`](src/flash_eep.c) and the invalid-mode fallback in [`flash_eep_load()`](src/flash_eep.c) (along with [`src/app_config.h`](src/app_config.h) and [`src/flash_eep.h`](src/flash_eep.h)) so unconfigured / freshly flashed boards boot into `DEVICE_MODE_BLE` out-of-the-box instead of `DEVICE_MODE_ZIGBEE`.
+
+---
+
 ## [v1.0.07] - 2026-09-30
 
 ### Fixed

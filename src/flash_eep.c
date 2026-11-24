@@ -40,7 +40,7 @@ void flash_eep_set_default(void) {
     memset(&settings, 0, sizeof(settings));
     settings.magic = EEP_MAGIC;
     settings.sequence = 0;
-    settings.active_mode = DEVICE_MODE_ZIGBEE; // Zigbee default out-of-the-box
+    settings.active_mode = DEVICE_MODE_BLE;    // BLE default out-of-the-box
     settings.active_slot = EPD_SLOT_INFO;      // Slot 0 (Info page)
     settings.render_style = STYLE_STANDARD;    // Standard rendering
     settings.reserved = 0;
@@ -104,7 +104,7 @@ bool flash_eep_load(void) {
 
     memcpy(&settings, &best_entry, sizeof(settings));
     if (settings.active_mode != DEVICE_MODE_ZIGBEE && settings.active_mode != DEVICE_MODE_BLE) {
-        settings.active_mode = DEVICE_MODE_ZIGBEE;
+        settings.active_mode = DEVICE_MODE_BLE;
     }
     if (settings.active_slot >= EPD_SLOT_COUNT) {
         settings.active_slot = EPD_SLOT_INFO;

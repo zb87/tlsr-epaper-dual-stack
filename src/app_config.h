@@ -19,15 +19,27 @@ extern "C" {
 
 #define BOARD_HANSHOW_E31HA      0x31
 #define BOARD_HANSHOW_E31PA      0x42
+#define BOARD_ENDOR_0420         0x43
 
 #ifndef BOARD
 #define BOARD                    BOARD_HANSHOW_E31HA
+#endif
+
+#define EPD_IS_420               ((BOARD == BOARD_HANSHOW_E31PA) || (BOARD == BOARD_ENDOR_0420))
+
+#if (BOARD == BOARD_ENDOR_0420)
+#define NFC_ENABLED              0
+#else
+#define NFC_ENABLED              1
 #endif
 
 // Firmware Identification
 #if (BOARD == BOARD_HANSHOW_E31PA)
 #define DEV_NAME                 "TLSR-XL3Na-E31PA"
 #define DEV_MODEL                "TLSR-XL3Na-E31PA"
+#elif (BOARD == BOARD_ENDOR_0420)
+#define DEV_NAME                 "TLSR-Endor-0420"
+#define DEV_MODEL                "TLSR-Endor-0420"
 #else
 #define DEV_NAME                 "TLSR-M3Na-E31HA"
 #define DEV_MODEL                "TLSR-M3Na-E31HA"
@@ -98,12 +110,21 @@ enum {
 #define SHARED_SCRATCH_RAM_SIZE  (16 * 1024) // 16 KB shared buffer for both M3NA and XL3NA
 
 /* =========================================================================
-   Hardware Peripheral GPIO Mapping (Hanshow Stellar-M3N@ / E31HA)
+   Hardware Peripheral GPIO Mapping
    ========================================================================= */
 
 // Status RGB LEDs (Active Low)
+#if (BOARD == BOARD_ENDOR_0420)
+#define GPIO_LED_BLUE            GPIO_PD4
+#define PD4_INPUT_ENABLE         0
+#define PD4_OUTPUT_ENABLE        1
+#define PD4_DATA_OUT             1        // Active low: 1 = OFF
+#define PD4_FUNC                 AS_GPIO
+#define PULL_WAKEUP_SRC_PD4      PM_PIN_PULLUP_1M
+#else
 // Blue: BLE Mode indication (PA7 shared with SWS debug, keep AS_SWIRE default in gpio_default.h)
 #define GPIO_LED_BLUE            GPIO_PA7
+#endif
 
 // Green: Zigbee Mode indication
 #define GPIO_LED_GREEN           GPIO_PD3
@@ -121,10 +142,24 @@ enum {
 #define PD2_FUNC                 AS_GPIO
 #define PULL_WAKEUP_SRC_PD2      PM_PIN_PULLUP_1M
 
-// E-Paper Display (2.13" 250x122 BWR - UC8151 / SSD1619)
+#if (BOARD == BOARD_ENDOR_0420)
+// E-Paper Display (4.2" 400x300 BWR - SSD1683, no power gate MOSFET)
+#define GPIO_EPD_RESET           GPIO_PC5
+#define GPIO_EPD_DC              GPIO_PC4
+#define GPIO_EPD_BUSY            GPIO_PC6 // Active HIGH during refresh
+#define PC6_INPUT_ENABLE         1
+#define PC6_OUTPUT_ENABLE        0
+#define PC6_DATA_OUT             0
+#define PC6_FUNC                 AS_GPIO
+#define PULL_WAKEUP_SRC_PC6      PM_PIN_UP_DOWN_FLOAT
+#define GPIO_EPD_CS              GPIO_PB4
+#define GPIO_EPD_CLK             GPIO_PB1
+#define GPIO_EPD_MOSI            GPIO_PA1
+#else
+// E-Paper Display (2.13" UC8151 on E31HA / 4.2" UC8176 on E31PA)
 #define GPIO_EPD_RESET           GPIO_PD4
 #define GPIO_EPD_DC              GPIO_PD7
-#define GPIO_EPD_BUSY            GPIO_PA1
+#define GPIO_EPD_BUSY            GPIO_PA1 // Active LOW during refresh
 #define PA1_INPUT_ENABLE         1
 #define PA1_OUTPUT_ENABLE        0
 #define PA1_DATA_OUT             0
@@ -149,7 +184,9 @@ enum {
 #define PULL_WAKEUP_SRC_PC5      PM_PIN_PULLUP_1M
 #define PULL_WAKEUP_SRC_PA1      PM_PIN_PULLUP_1M
 #endif
+#endif
 
+#if NFC_ENABLED
 // NFC Transceiver (Fudan Micro FM11NC08 I2C)
 #define GPIO_NFC_SDA             GPIO_PC0
 #define GPIO_NFC_SCL             GPIO_PC1
@@ -157,19 +194,20 @@ enum {
 #define GPIO_NFC_CS              GPIO_PC6
 #define I2C_GROUP                I2C_GPIO_GROUP_C0C1
 #define I2C_CLOCK                400000 // 400 kHz fast I2C
+#endif
 
 // Battery Voltage Measurement (Internal SAR ADC via PB0 / VDD)
 #define SHL_ADC_VBAT             1
 #define GPIO_VBAT                GPIO_PB0
 
-// UART Logging (PB1, optional)
+// UART Logging (PB1, optional; PB1 is EPD_CLK on Endor 0420 so disable hardware UART TX there)
 #define GPIO_UART_TX             GPIO_PB1
 
 #ifndef DEBUG
 #define DEBUG                    0
 #endif
 
-#if DEBUG
+#if DEBUG && (BOARD != BOARD_ENDOR_0420)
 #undef UART_PRINTF_MODE
 #define UART_PRINTF_MODE         1
 #ifndef DEBUG_INFO_TX_PIN
@@ -194,7 +232,7 @@ enum {
 /* =========================================================================
    Display Chemistry & Dimensions
    ========================================================================= */
-#if (BOARD == BOARD_HANSHOW_E31PA)
+#if EPD_IS_420
 #define EPD_WIDTH                400
 #define EPD_HEIGHT               300
 #define EPD_BUFFER_HEIGHT        304
@@ -274,8 +312,8 @@ enum {
    Operating Modes
    ========================================================================= */
 typedef enum {
-    DEVICE_MODE_ZIGBEE = 1, // Factory default
-    DEVICE_MODE_BLE    = 2,
+    DEVICE_MODE_ZIGBEE = 1,
+    DEVICE_MODE_BLE    = 2, // Factory default
 } device_mode_t;
 
 #if defined(__cplusplus)

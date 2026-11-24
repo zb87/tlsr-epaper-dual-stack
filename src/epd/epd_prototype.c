@@ -92,6 +92,8 @@ int epd_prototype_execute(uint32_t flash_addr, uint32_t *duration_ms) {
         .struct_version = 1,
 #if (BOARD == BOARD_HANSHOW_E31PA)
         .board_type = 1,
+#elif (BOARD == BOARD_ENDOR_0420)
+        .board_type = 2,
 #else
         .board_type = 0,
 #endif

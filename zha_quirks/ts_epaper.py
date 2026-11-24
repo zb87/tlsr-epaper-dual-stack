@@ -316,3 +316,6 @@ _register_epaper_quirk("TLSR-M3Na-E31HA", ActiveSlotM3)
 
 # Register Stellar-XL3N@ / E31PA Quirk (4.2" BWR, slots 0..7)
 _register_epaper_quirk("TLSR-XL3Na-E31PA", ActiveSlotXL3)
+
+# Register BLOZI Endor 0420 Quirk (4.2" BWR, slots 0..7)
+_register_epaper_quirk("TLSR-Endor-0420", ActiveSlotXL3)

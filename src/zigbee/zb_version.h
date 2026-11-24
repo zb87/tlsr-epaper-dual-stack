@@ -10,6 +10,8 @@
 #ifndef ZCL_BASIC_MODEL_ID
 #if (BOARD == BOARD_HANSHOW_E31PA)
 #define ZCL_BASIC_MODEL_ID      {16, 'T','L','S','R','-','X','L','3','N','a','-','E','3','1','P','A'}
+#elif (BOARD == BOARD_ENDOR_0420)
+#define ZCL_BASIC_MODEL_ID      {15, 'T','L','S','R','-','E','n','d','o','r','-','0','4','2','0'}
 #else
 #define ZCL_BASIC_MODEL_ID      {15, 'T','L','S','R','-','M','3','N','a','-','E','3','1','H','A'}
 #endif

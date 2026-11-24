@@ -16,8 +16,8 @@ extern void flash_unlock(void);
 _attribute_custom_bss_ static OBDISP obd;
 _attribute_custom_bss_ uint8_t shared_scratch_ram[SHARED_SCRATCH_RAM_SIZE];
 
-#if (BOARD == BOARD_HANSHOW_E31PA)
-// 4 User Slots for XL3Na (8 KB each: 2 sectors of 4 KB, within 0x78000 - 0x7FFFF)
+#if EPD_IS_420
+// 4 User Slots for 4.2" 400x300 panels (8 KB each: 2 sectors of 4 KB, within 0x78000 - 0x7FFFF)
 static const uint32_t flash_slots[EPD_USER_SLOT_COUNT] = {
     0x78000, // Slot 1 (0x78000 - 0x79FFF)
     0x7A000, // Slot 2 (0x7A000 - 0x7BFFF)
@@ -61,11 +61,11 @@ void epd_render_info_slot(void) {
 
     char buf[64];
 
-#if (BOARD == BOARD_HANSHOW_E31PA)
+#if EPD_IS_420
     // -------------------------------------------------------------------------
     // 4.2" Display Layout (400 x 300)
     // -------------------------------------------------------------------------
-    sprintf(buf, "TLSR-XL3Na-E31PA DUAL-STACK");
+    sprintf(buf, "%s DUAL-STACK", DEV_NAME);
     obdWriteStringCustom(&obd, (GFXfont *)&Dialog_plain_16, 12, 22, buf, 1);
     obdDrawLine(&obd, 0, 30, 399, 30, 1, 0);
 
@@ -137,7 +137,7 @@ void epd_render_info_slot(void) {
 uint8_t epd_get_info_pixel_byte(uint16_t byte_idx) {
     if (byte_idx >= EPD_PLANE_SIZE) return 0xFF;
 
-#if (BOARD == BOARD_HANSHOW_E31PA)
+#if EPD_IS_420
     // 400x300 horizontal rows, 50 bytes per line
     int y = byte_idx / 50;
     int c = byte_idx % 50;
@@ -168,7 +168,7 @@ void epd_prepare_slot_upload(uint8_t slot_idx, uint8_t plane) {
 
     flash_unlock();
     flash_erase(addr);
-#if (BOARD == BOARD_HANSHOW_E31PA)
+#if EPD_IS_420
     flash_erase(addr + 0x1000); // 8 KB slot: erase second 4 KB sector
 #endif
 }
@@ -204,7 +204,7 @@ void epd_erase_slot(uint8_t slot_idx) {
 
     flash_unlock();
     flash_erase(addr);
-#if (BOARD == BOARD_HANSHOW_E31PA)
+#if EPD_IS_420
     flash_erase(addr + 0x1000);
 #endif
 }

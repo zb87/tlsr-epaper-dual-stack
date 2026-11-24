@@ -3,7 +3,7 @@
 //#include "app_cfg.h"
 #include "i2c_drv.h"
 
-#if USE_I2C_DRV == I2C_DRV_HARD // Hardware I2C
+#if NFC_ENABLED && (USE_I2C_DRV == I2C_DRV_HARD) // Hardware I2C
 
 #define _I2C_SEG_
 
@@ -246,7 +246,7 @@ int I2CBusUtr(void * outdata, i2c_utr_t * tr, unsigned int wrlen) {
 	return ret;
 }
 
-#elif USE_I2C_DRV == I2C_DRV_SOFT // Soft I2C
+#elif NFC_ENABLED && (USE_I2C_DRV == I2C_DRV_SOFT) // Soft I2C
 
 #if I2C_CLOCK > 200000
 #define I2C_TCLK_US	10 // *0.625 us (in 1/16 us)  I2C ~ 222222 Hz

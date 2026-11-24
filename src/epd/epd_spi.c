@@ -16,40 +16,42 @@ void EPD_init_pins(void) {
     gpio_set_input_en(GPIO_EPD_DC, 0);
     gpio_setup_up_down_resistor(GPIO_EPD_DC, PM_PIN_PULLUP_1M);
 
-    // Busy: PA1 (Input)
+    // Busy (Input)
     gpio_set_func(GPIO_EPD_BUSY, AS_GPIO);
     gpio_set_output_en(GPIO_EPD_BUSY, 0);
     gpio_set_input_en(GPIO_EPD_BUSY, 1);
-#if (BOARD == BOARD_HANSHOW_E31PA)
+#if EPD_IS_420
     gpio_setup_up_down_resistor(GPIO_EPD_BUSY, PM_PIN_UP_DOWN_FLOAT);
 #else
     gpio_setup_up_down_resistor(GPIO_EPD_BUSY, PM_PIN_PULLUP_1M);
 #endif
 
-    // CS: PB4
+    // CS
     gpio_set_func(GPIO_EPD_CS, AS_GPIO);
     gpio_set_output_en(GPIO_EPD_CS, 1);
     gpio_set_input_en(GPIO_EPD_CS, 0);
     gpio_setup_up_down_resistor(GPIO_EPD_CS, PM_PIN_PULLUP_1M);
     gpio_write(GPIO_EPD_CS, 1);
 
-    // CLK: PB5
+    // CLK
     gpio_set_func(GPIO_EPD_CLK, AS_GPIO);
     gpio_set_output_en(GPIO_EPD_CLK, 1);
     gpio_set_input_en(GPIO_EPD_CLK, 0);
     gpio_setup_up_down_resistor(GPIO_EPD_CLK, PM_PIN_PULLUP_1M);
 
-    // MOSI: PB6
+    // MOSI
     gpio_set_func(GPIO_EPD_MOSI, AS_GPIO);
     gpio_set_output_en(GPIO_EPD_MOSI, 1);
     gpio_set_input_en(GPIO_EPD_MOSI, 0);
     gpio_setup_up_down_resistor(GPIO_EPD_MOSI, PM_PIN_PULLUP_1M);
 
+#ifdef GPIO_EPD_PWR_ENABLE
     // Power Gate: Active Low MOSFET (PB7 on E31PA, PC5 on E31HA)
     gpio_set_func(GPIO_EPD_PWR_ENABLE, AS_GPIO);
     gpio_set_output_en(GPIO_EPD_PWR_ENABLE, 1);
     gpio_set_input_en(GPIO_EPD_PWR_ENABLE, 0);
     EPD_POWER_OFF(); // Default OFF (pullup, pin HIGH)
+#endif
 
     // Clock gating: enable SPI clock only while communicating with EPD
     reg_clk_en0 |= FLD_CLK0_SPI_EN;
@@ -57,10 +59,12 @@ void EPD_init_pins(void) {
 
 void EPD_isolate_pins(void) {
     // 1. Disable internal pull-ups on all EPD pins to prevent resistor leakage
+#ifdef GPIO_EPD_PWR_ENABLE
 #if (BOARD == BOARD_HANSHOW_E31PA)
     gpio_setup_up_down_resistor(GPIO_EPD_PWR_ENABLE, PM_PIN_PULLUP_10K);
 #else
     gpio_setup_up_down_resistor(GPIO_EPD_PWR_ENABLE, PM_PIN_PULLUP_1M);
+#endif
 #endif
     gpio_setup_up_down_resistor(GPIO_EPD_RESET, PM_PIN_UP_DOWN_FLOAT);
     gpio_setup_up_down_resistor(GPIO_EPD_DC,    PM_PIN_UP_DOWN_FLOAT);
@@ -81,20 +85,35 @@ void EPD_isolate_pins(void) {
 }
 
 void EPD_SPI_Write(uint8_t value) {
-    uint8_t bit_clk = GPIO_EPD_CLK & 0xff;   // PB5 (bit 5: 0x20)
-    uint8_t bit_mosi = GPIO_EPD_MOSI & 0xff; // PB6 (bit 6: 0x40)
-    volatile uint8_t *p_out = &reg_gpio_out(GPIO_EPD_CLK);
+    uint8_t bit_clk = GPIO_EPD_CLK & 0xff;
+    uint8_t bit_mosi = GPIO_EPD_MOSI & 0xff;
 
-    for (uint8_t i = 0; i < 8; i++) {
-        // Drop CLK LOW and set MOSI data bit simultaneously in a single register write
-        if (value & 0x80) {
-            *p_out = (*p_out & ~bit_clk) | bit_mosi;
-        } else {
-            *p_out = *p_out & ~(bit_clk | bit_mosi);
+    if ((GPIO_EPD_CLK & 0xff00) == (GPIO_EPD_MOSI & 0xff00)) {
+        volatile uint8_t *p_out = &reg_gpio_out(GPIO_EPD_CLK);
+        for (uint8_t i = 0; i < 8; i++) {
+            // Drop CLK LOW and set MOSI data bit simultaneously in a single register write
+            if (value & 0x80) {
+                *p_out = (*p_out & ~bit_clk) | bit_mosi;
+            } else {
+                *p_out = *p_out & ~(bit_clk | bit_mosi);
+            }
+            value <<= 1;
+            // Raise CLK HIGH
+            *p_out |= bit_clk;
         }
-        value <<= 1;
-        // Raise CLK HIGH
-        *p_out |= bit_clk;
+    } else {
+        volatile uint8_t *p_clk = &reg_gpio_out(GPIO_EPD_CLK);
+        volatile uint8_t *p_mosi = &reg_gpio_out(GPIO_EPD_MOSI);
+        for (uint8_t i = 0; i < 8; i++) {
+            *p_clk &= ~bit_clk;
+            if (value & 0x80) {
+                *p_mosi |= bit_mosi;
+            } else {
+                *p_mosi &= ~bit_mosi;
+            }
+            value <<= 1;
+            *p_clk |= bit_clk;
+        }
     }
 }
 

@@ -69,6 +69,7 @@ bool log_ring_get_entry(uint16_t seq, ble_log_entry_t *out_entry) {
     return true;
 }
 
+#if (BOARD != BOARD_ENDOR_0420)
 // Hardware UART Non-DMA Mode on TLSR8258
 // System clock = 24 MHz Crystal
 // 115200 baud: div = 12, bwpc = 15 -> 24000000 / ((12+1)*(15+1)) = 115384.6 baud (0.16% error)
@@ -122,6 +123,14 @@ void debug_uart_sync(void) {
     }
     uart_ndma_clear_tx_index();
 }
+#else
+// PB1 is EPD_CLK on Endor 0420: keep hardware UART disabled while preserving log ring buffer
+void debug_uart_init(void) {}
+void debug_uart_putc(char c) { (void)c; }
+void debug_uart_puts(const char *s) { (void)s; }
+_attribute_ram_code_ void debug_uart_flush(void) {}
+_attribute_ram_code_ void debug_uart_sync(void) {}
+#endif
 
 void drv_putchar(unsigned char byte) {
     debug_uart_putc((char)byte);
