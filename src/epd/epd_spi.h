@@ -17,7 +17,7 @@
     gpio_set_output_en(GPIO_EPD_PWR_ENABLE, 0); \
     gpio_setup_up_down_resistor(GPIO_EPD_PWR_ENABLE, PM_PIN_PULLUP_10K); \
 } while (0)
-#elif (BOARD == BOARD_ENDOR_0420)
+#elif (BOARD == BOARD_ENDOR_0420) || (BOARD == BOARD_ENDOR_0750)
 #define EPD_POWER_ON()  do {} while (0)
 #define EPD_POWER_OFF() do {} while (0)
 #else

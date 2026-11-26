@@ -20,12 +20,16 @@ extern "C" {
 #define BOARD_HANSHOW_E31HA      0x31
 #define BOARD_HANSHOW_E31PA      0x42
 #define BOARD_ENDOR_0420         0x43
+#define BOARD_ENDOR_0750         0x44
 
 #ifndef BOARD
 #define BOARD                    BOARD_HANSHOW_E31HA
 #endif
 
 #define EPD_IS_420               ((BOARD == BOARD_HANSHOW_E31PA) || (BOARD == BOARD_ENDOR_0420))
+#define EPD_IS_750               (BOARD == BOARD_ENDOR_0750)
+#define EXT_FLASH_ENABLED        (BOARD == BOARD_ENDOR_0750)
+#define UART_PB1_CONFLICT        ((BOARD == BOARD_ENDOR_0420) || (BOARD == BOARD_ENDOR_0750))
 
 #if (BOARD == BOARD_ENDOR_0420)
 #define NFC_ENABLED              0
@@ -40,6 +44,9 @@ extern "C" {
 #elif (BOARD == BOARD_ENDOR_0420)
 #define DEV_NAME                 "TLSR-Endor-0420"
 #define DEV_MODEL                "TLSR-Endor-0420"
+#elif (BOARD == BOARD_ENDOR_0750)
+#define DEV_NAME                 "TLSR-Endor-0750"
+#define DEV_MODEL                "TLSR-Endor-0750"
 #else
 #define DEV_NAME                 "TLSR-M3Na-E31HA"
 #define DEV_MODEL                "TLSR-M3Na-E31HA"
@@ -121,10 +128,46 @@ enum {
 #define PD4_DATA_OUT             1        // Active low: 1 = OFF
 #define PD4_FUNC                 AS_GPIO
 #define PULL_WAKEUP_SRC_PD4      PM_PIN_PULLUP_1M
+
+#define GPIO_LED_GREEN           GPIO_PD3
+#define PD3_INPUT_ENABLE         0
+#define PD3_OUTPUT_ENABLE        1
+#define PD3_DATA_OUT             1        // Active low: 1 = OFF
+#define PD3_FUNC                 AS_GPIO
+#define PULL_WAKEUP_SRC_PD3      PM_PIN_PULLUP_1M
+
+#define GPIO_LED_RED             GPIO_PD2
+#define PD2_INPUT_ENABLE         0
+#define PD2_OUTPUT_ENABLE        1
+#define PD2_DATA_OUT             1        // Active low: 1 = OFF
+#define PD2_FUNC                 AS_GPIO
+#define PULL_WAKEUP_SRC_PD2      PM_PIN_PULLUP_1M
+#elif (BOARD == BOARD_ENDOR_0750)
+// Endor-0750: PD2=Blue (verified), PA0=Green (verified), PD3=Red (verified via stock jump table)
+#define GPIO_LED_RED             GPIO_PD3
+#define PD3_INPUT_ENABLE         0
+#define PD3_OUTPUT_ENABLE        1
+#define PD3_DATA_OUT             1        // Active low: 1 = OFF
+#define PD3_FUNC                 AS_GPIO
+#define PULL_WAKEUP_SRC_PD3      PM_PIN_PULLUP_1M
+
+#define GPIO_LED_GREEN           GPIO_PA0
+#define PA0_INPUT_ENABLE         0
+#define PA0_OUTPUT_ENABLE        1
+#define PA0_DATA_OUT             1        // Active low: 1 = OFF
+#define PA0_FUNC                 AS_GPIO
+#define PULL_WAKEUP_SRC_PA0      PM_PIN_PULLUP_1M
+
+#define GPIO_LED_BLUE            GPIO_PD2
+#define PD2_INPUT_ENABLE         0
+#define PD2_OUTPUT_ENABLE        1
+#define PD2_DATA_OUT             1        // Active low: 1 = OFF
+#define PD2_FUNC                 AS_GPIO
+#define PULL_WAKEUP_SRC_PD2      PM_PIN_PULLUP_1M
 #else
 // Blue: BLE Mode indication (PA7 shared with SWS debug, keep AS_SWIRE default in gpio_default.h)
 #define GPIO_LED_BLUE            GPIO_PA7
-#endif
+#define LED_BLUE_SHARED_SWS
 
 // Green: Zigbee Mode indication
 #define GPIO_LED_GREEN           GPIO_PD3
@@ -141,12 +184,26 @@ enum {
 #define PD2_DATA_OUT             1        // Active low: 1 = OFF
 #define PD2_FUNC                 AS_GPIO
 #define PULL_WAKEUP_SRC_PD2      PM_PIN_PULLUP_1M
+#endif
 
 #if (BOARD == BOARD_ENDOR_0420)
 // E-Paper Display (4.2" 400x300 BWR - SSD1683, no power gate MOSFET)
 #define GPIO_EPD_RESET           GPIO_PC5
 #define GPIO_EPD_DC              GPIO_PC4
 #define GPIO_EPD_BUSY            GPIO_PC6 // Active HIGH during refresh
+#define PC6_INPUT_ENABLE         1
+#define PC6_OUTPUT_ENABLE        0
+#define PC6_DATA_OUT             0
+#define PC6_FUNC                 AS_GPIO
+#define PULL_WAKEUP_SRC_PC6      PM_PIN_UP_DOWN_FLOAT
+#define GPIO_EPD_CS              GPIO_PB4
+#define GPIO_EPD_CLK             GPIO_PB1
+#define GPIO_EPD_MOSI            GPIO_PA1
+#elif (BOARD == BOARD_ENDOR_0750)
+// E-Paper Display (7.5" 800x480 BWR - UC8179, no power gate MOSFET)
+#define GPIO_EPD_RESET           GPIO_PC5
+#define GPIO_EPD_DC              GPIO_PC4
+#define GPIO_EPD_BUSY            GPIO_PC6 // Active LOW during refresh
 #define PC6_INPUT_ENABLE         1
 #define PC6_OUTPUT_ENABLE        0
 #define PC6_DATA_OUT             0
@@ -186,28 +243,46 @@ enum {
 #endif
 #endif
 
+#if EXT_FLASH_ENABLED
+// External 2 MB SPI NOR Flash (U5: GigaDevice GD25Q16EQ on HW SPI B6/B7/D7, CS=PB5)
+#define EXT_FLASH_SPI_GROUP      SPI_GPIO_GROUP_B6B7D2D7
+#define EXT_FLASH_CS_PIN         GPIO_PB5
+#define EXT_FLASH_SIZE_BYTES     (2 * 1024 * 1024)
+#define PB5_INPUT_ENABLE         0
+#define PB5_OUTPUT_ENABLE        1
+#define PB5_DATA_OUT             1        // CS# idle HIGH across deep retention wakeups
+#define PB5_FUNC                 AS_GPIO
+#define PULL_WAKEUP_SRC_PB5      PM_PIN_PULLUP_1M
+#endif
+
 #if NFC_ENABLED
 // NFC Transceiver (Fudan Micro FM11NC08 I2C)
 #define GPIO_NFC_SDA             GPIO_PC0
 #define GPIO_NFC_SCL             GPIO_PC1
+#if (BOARD == BOARD_ENDOR_0750)
+#define GPIO_NFC_IRQ             GPIO_PD4 // Active Low interrupt / deep-sleep wakeup (no CS pin)
+#define I2C_GROUP                I2C_GPIO_GROUP_C0C1
+#define I2C_CLOCK                200000 // 200 kHz I2C
+#else
 #define GPIO_NFC_IRQ             GPIO_PC4 // Active Low interrupt on RxDone / Field detect
 #define GPIO_NFC_CS              GPIO_PC6
 #define I2C_GROUP                I2C_GPIO_GROUP_C0C1
 #define I2C_CLOCK                400000 // 400 kHz fast I2C
+#endif
 #endif
 
 // Battery Voltage Measurement (Internal SAR ADC via PB0 / VDD)
 #define SHL_ADC_VBAT             1
 #define GPIO_VBAT                GPIO_PB0
 
-// UART Logging (PB1, optional; PB1 is EPD_CLK on Endor 0420 so disable hardware UART TX there)
+// UART Logging (PB1, optional; PB1 is EPD_CLK on Endor 0420/0750 so disable hardware UART TX there)
 #define GPIO_UART_TX             GPIO_PB1
 
 #ifndef DEBUG
 #define DEBUG                    0
 #endif
 
-#if DEBUG && (BOARD != BOARD_ENDOR_0420)
+#if DEBUG && !UART_PB1_CONFLICT
 #undef UART_PRINTF_MODE
 #define UART_PRINTF_MODE         1
 #ifndef DEBUG_INFO_TX_PIN
@@ -232,7 +307,27 @@ enum {
 /* =========================================================================
    Display Chemistry & Dimensions
    ========================================================================= */
-#if EPD_IS_420
+#if EPD_IS_750
+#define EPD_WIDTH                800
+#define EPD_HEIGHT               480
+#define EPD_INFO_BAND_HEIGHT     120
+#define EPD_INFO_BAND_COUNT      4
+#define EPD_LINE_BYTES           100 // 100 bytes per line (800 bits horizontal)
+#define EPD_PLANE_SIZE           (EPD_WIDTH * EPD_HEIGHT / 8) // 48,000 bytes exact UC8179 plane size
+
+// Slot Definitions for Endor 0750 (800x480, 2 MB External GD25Q16EQ):
+// Slot 0: System Info Screen (Banded 4x 800x120 in 16 KB shared scratch RAM)
+// Slots 1..8: User Uploaded Compressed BWR Images (128 KB each in external flash)
+// Slot 9: Blank Screen (White)
+#define EPD_SLOT_INFO            0
+#define EPD_USER_SLOT_START      1
+#define EPD_USER_SLOT_COUNT      8
+#define EPD_SLOT_BLANK           9
+#define EPD_SLOT_COUNT           10
+#define EPD_SLOT_SIZE            (128 * 1024) // 128 KB per user slot (2x 64 KB blocks)
+#define EPD_TOTAL_LINES          (EPD_PLANE_SIZE / EPD_LINE_BYTES) // 480 lines
+
+#elif EPD_IS_420
 #define EPD_WIDTH                400
 #define EPD_HEIGHT               300
 #define EPD_BUFFER_HEIGHT        304

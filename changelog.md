@@ -4,6 +4,18 @@ All notable changes to the TLSR E-Paper Dual-Stack Firmware are documented in th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.0.09] - 2026-11-26
+
+### Added
+- **BLOZI Endor 7.5" (`BOARD_ENDOR_0750`) Hardware Support (800×480 BWR, UC8179, 2 MB External SPI Flash, Runtime Auto-Detected NFC)**:
+  - Added `UC8179` 7.5" 800×480 BWR display driver ([`src/epd/epd_bwr_750.c`](src/epd/epd_bwr_750.c), [`src/epd/epd_bwr_750.h`](src/epd/epd_bwr_750.h)) with bit-banged SPI (`CS=PB4`, `CLK=PB1`, `MOSI=PA1`, `DC=PC4`, `RST=PC5`, `BUSY=PC6`), `0x50 -> 0x20, 0x07` polarity handling (`~dtm1`, non-inverted `dtm2`), and 45s refresh timeout guard.
+  - Added external 2 MB `GD25Q16EQ` SPI NOR flash driver ([`src/ext_flash.c`](src/ext_flash.c), [`src/ext_flash.h`](src/ext_flash.h)) on HW SPI (`PB5`=CS#, `PB6`=MISO, `PB7`=MOSI, `PD7`=CLK) with JEDEC ID check (`0x9F`), automatic `0xB9` Deep Power-Down when idle, `0xAB` Wake on access, and `LED_RED` (`PD2`) restoration after SDK SPI pin muxing.
+  - Configured **8 × 128 KB user image slots** (`Slots 1..8` at external flash `0x010000`–`0x10FFFF`, `Slot 0` = Info, `Slot 9` = Blank) leaving internal `0x78000`–`0x7FFFF` untouched (preserving BLOZI ESL ID at `0x7F000`).
+  - Added banded native 800×480 Slot 0 Info rendering (4 × `800×120` bands in `16 KB` `shared_scratch_ram` using `Special_Elite_Regular_30`) and 32-bit slot offsets across [`src/epd/epd_slots.c`](src/epd/epd_slots.c) and [`src/epd/epd.c`](src/epd/epd.c).
+  - Updated [`src/ble/ble_app.c`](src/ble/ble_app.c) with 24-bit upload telemetry (`confirmed_offset_hi`), incremental 4 KB streaming flushes to external flash for >16 KB compressed images, and 20-bit offset encoding for >64 KB slot fetches (`0x16`).
+  - Updated [`src/nfc_fm11nc08.c`](src/nfc_fm11nc08.c) (and sleep/loop callers in `main.c`, `ble_app.c`, `zb_app.c`) with runtime I2C auto-detection, optional `GPIO_NFC_CS`, and low-leakage pin shutdown when `FM11NC08I` is unpopulated.
+  - Added `BOARD_ENDOR_0750` (`0x44`) pinout (`GPIO_LED_BLUE = GPIO_PA0`), `endor0750` Makefile target, and companion configs in [`web/index.html`](web/index.html), [`zigbee2mqtt/zb-epaper.js`](zigbee2mqtt/zb-epaper.js), and [`zha_quirks/ts_epaper.py`](zha_quirks/ts_epaper.py).
+
 ## [v1.0.08] - 2026-11-24
 
 ### Added

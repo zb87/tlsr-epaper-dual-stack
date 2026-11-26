@@ -44,6 +44,9 @@ ifeq ($(strip $(BOARD)), BOARD_HANSHOW_E31PA)
 OBJS += $(OUT_PATH)$(SRC_DIR)/epd/epd_bwr_420.o
 else ifeq ($(strip $(BOARD)), BOARD_ENDOR_0420)
 OBJS += $(OUT_PATH)$(SRC_DIR)/epd/epd_bwr_420_ssd1683.o
+else ifeq ($(strip $(BOARD)), BOARD_ENDOR_0750)
+OBJS += $(OUT_PATH)$(SRC_DIR)/epd/epd_bwr_750.o \
+	$(OUT_PATH)$(SRC_DIR)/ext_flash.o
 else
 OBJS += $(OUT_PATH)$(SRC_DIR)/epd/epd_bwr_213.o
 endif

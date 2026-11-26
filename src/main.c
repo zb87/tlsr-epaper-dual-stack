@@ -8,6 +8,7 @@
 #include "led.h"
 #include "epd.h"
 #include "epd_slots.h"
+#include "ext_flash.h"
 #include "mode_switch.h"
 #include "nfc_fm11nc08.h"
 #include "zigbee/zb_app.h"
@@ -25,7 +26,7 @@ int main(void) {
     power_tracker_init(isRetention);
     power_tracker_on_wake();
 
-    #if DEBUG
+    #if DEBUG && !UART_PB1_CONFLICT
     reg_clk_en0 |= FLD_CLK0_UART_EN;
     #endif
 
@@ -68,6 +69,7 @@ int main(void) {
             analog_write(0x38, 0);
         }
 
+        ext_flash_init();
         epd_init();
 #if NFC_ENABLED
         nfc_fm11nc08_init(true);
@@ -115,8 +117,8 @@ int main(void) {
 #endif
         }
 #if NFC_ENABLED
-        // Event-gated NFC: only initialize I2C / process NFC if RF field is detected
-        if (!gpio_read(GPIO_NFC_IRQ)) {
+        // Event-gated NFC: only initialize I2C / process NFC if RF field is detected and chip is present
+        if (nfc_fm11nc08_is_present() && !gpio_read(GPIO_NFC_IRQ)) {
             nfc_fm11nc08_init(false);
         }
 #endif
@@ -135,7 +137,7 @@ int main(void) {
             ble_task();
             if (!ota_is_working) {
 #if NFC_ENABLED
-                if (!gpio_read(GPIO_NFC_IRQ) || nfc_fm11nc08_is_active()) {
+                if (nfc_fm11nc08_is_present() && (!gpio_read(GPIO_NFC_IRQ) || nfc_fm11nc08_is_active())) {
                     nfc_process_events();
                 }
 #endif
@@ -162,7 +164,7 @@ int main(void) {
         while (1) {
             zb_task();
 #if NFC_ENABLED
-            if (!gpio_read(GPIO_NFC_IRQ) || nfc_fm11nc08_is_active()) {
+            if (nfc_fm11nc08_is_present() && (!gpio_read(GPIO_NFC_IRQ) || nfc_fm11nc08_is_active())) {
                 nfc_process_events();
             }
 #endif

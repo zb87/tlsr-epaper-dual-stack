@@ -94,6 +94,8 @@ int epd_prototype_execute(uint32_t flash_addr, uint32_t *duration_ms) {
         .board_type = 1,
 #elif (BOARD == BOARD_ENDOR_0420)
         .board_type = 2,
+#elif (BOARD == BOARD_ENDOR_0750)
+        .board_type = 3,
 #else
         .board_type = 0,
 #endif

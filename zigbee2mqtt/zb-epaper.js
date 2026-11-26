@@ -234,4 +234,35 @@ const definition_endor0420 = {
     meta: {},
 };
 
-module.exports = [definition_m3na, definition_xl3na, definition_endor0420];
+const definition_endor0750 = {
+    zigbeeModel: ['TLSR-Endor-0750'],
+    model: 'TLSR-Endor-0750',
+    vendor: 'ZB-DIY',
+    description: 'BLOZI Endor 0750 7.5-inch BWR E-Paper Dual-Stack (Zigbee + BLE)',
+    extend: [
+        m.enumLookup({
+            name: 'active_slot',
+            cluster: 'customEpaper',
+            attribute: 'activeSlot',
+            lookup: {
+                'info': 0,
+                'user1': 1,
+                'user2': 2,
+                'user3': 3,
+                'user4': 4,
+                'user5': 5,
+                'user6': 6,
+                'user7': 7,
+                'user8': 8,
+                'blank': 9,
+            },
+            description: 'Active screen slot (0: Info, 1..8: User Images 1..8 [128KB Ext Flash Compressed BWR], 9: Blank)',
+            access: 'ALL',
+        }),
+        ...commonExtends,
+    ],
+    ota: true,
+    meta: {},
+};
+
+module.exports = [definition_m3na, definition_xl3na, definition_endor0420, definition_endor0750];

@@ -17,6 +17,7 @@ _attribute_custom_bss_ char nfc_diag_ble_buf[256];
 
 // Hardware I2C / Chip Presence
 RAM static bool fm11_present = false;
+RAM static bool fm11_probed = false;
 RAM static uint8_t fm11_i2c_addr = FM11NC08_I2C_ADDR_W; // 0xAE default, or 0xA0
 
 // Cache last transmitted RF response for ISO 14443-4 R(NAK) retransmission
@@ -140,20 +141,24 @@ int nfc_fm11nc08_get_diag_string(char *dst, int dst_max_len) {
 }
 #endif
 
-// Low-Level NFC Chip Select (PC6) Control
+// Low-Level NFC Chip Select Control (optional: Hanshow boards use PC6; Endor 0750 has no CS pin)
 static inline void nfc_cs_low(void) {
+#ifdef GPIO_NFC_CS
     gpio_write(GPIO_NFC_CS, 0);
     WaitUs(50);
+#endif
 }
 
 static inline void nfc_cs_high(void) {
+#ifdef GPIO_NFC_CS
     gpio_write(GPIO_NFC_CS, 1);
     WaitUs(10);
+#endif
 }
 
 static void nfc_hw_i2c_init(void) {
-    i2c_gpio_set(I2C_GPIO_GROUP_C0C1);
-    i2c_master_init((uint8_t)(CLOCK_SYS_CLOCK_HZ / (4 * 400000)));
+    i2c_gpio_set(I2C_GROUP);
+    i2c_master_init((uint8_t)(CLOCK_SYS_CLOCK_HZ / (4 * I2C_CLOCK)));
     i2c_set_id(fm11_i2c_addr);
 }
 
@@ -277,32 +282,63 @@ bool nfc_fm11nc08_is_present(void) {
 }
 
 bool nfc_fm11nc08_is_active(void) {
+    if (!fm11_present) return false;
     return session_active || !gpio_read(GPIO_NFC_IRQ);
 }
 
+static void nfc_disable_pins_low_leakage(void) {
+    cpu_set_gpio_wakeup(GPIO_NFC_IRQ, Level_Low, 0);
+
+    gpio_set_func(GPIO_NFC_IRQ, AS_GPIO);
+    gpio_set_output_en(GPIO_NFC_IRQ, 0);
+    gpio_set_input_en(GPIO_NFC_IRQ, 0);
+    gpio_setup_up_down_resistor(GPIO_NFC_IRQ, PM_PIN_UP_DOWN_FLOAT);
+
+    gpio_set_func(GPIO_NFC_SDA, AS_GPIO);
+    gpio_set_output_en(GPIO_NFC_SDA, 0);
+    gpio_set_input_en(GPIO_NFC_SDA, 0);
+    gpio_setup_up_down_resistor(GPIO_NFC_SDA, PM_PIN_UP_DOWN_FLOAT);
+
+    gpio_set_func(GPIO_NFC_SCL, AS_GPIO);
+    gpio_set_output_en(GPIO_NFC_SCL, 0);
+    gpio_set_input_en(GPIO_NFC_SCL, 0);
+    gpio_setup_up_down_resistor(GPIO_NFC_SCL, PM_PIN_UP_DOWN_FLOAT);
+
+#ifdef GPIO_NFC_CS
+    gpio_set_func(GPIO_NFC_CS, AS_GPIO);
+    gpio_set_output_en(GPIO_NFC_CS, 0);
+    gpio_set_input_en(GPIO_NFC_CS, 0);
+    gpio_setup_up_down_resistor(GPIO_NFC_CS, PM_PIN_UP_DOWN_FLOAT);
+#endif
+}
+
 bool nfc_fm11nc08_init(bool is_cold_boot) {
+    if (!is_cold_boot && fm11_probed && !fm11_present) {
+        return false;
+    }
+
     // 1. Initialize Hardware I2C controller on PC0/PC1
     nfc_hw_i2c_init();
 
-    // 2. Configure PC6 (NFC_CS) as Output, Default HIGH (Idle/Standby for Contactless RF)
+#ifdef GPIO_NFC_CS
+    // 2. Configure NFC_CS as Output, Default HIGH (Idle/Standby for Contactless RF)
     gpio_set_func(GPIO_NFC_CS, AS_GPIO);
     gpio_set_output_en(GPIO_NFC_CS, 1);
     gpio_set_input_en(GPIO_NFC_CS, 0);
     gpio_setup_up_down_resistor(GPIO_NFC_CS, PM_PIN_PULLUP_10K);
     gpio_write(GPIO_NFC_CS, 1);
+#endif
 
-    // 3. Configure PC4 (NFC_IRQ): Input with 10K pull-up (Active LOW on RF field detect)
+    // 3. Configure NFC_IRQ: Input with 10K pull-up (Active LOW on RF field detect)
     gpio_set_func(GPIO_NFC_IRQ, AS_GPIO);
     gpio_set_output_en(GPIO_NFC_IRQ, 0);
     gpio_set_input_en(GPIO_NFC_IRQ, 1);
     gpio_setup_up_down_resistor(GPIO_NFC_IRQ, PM_PIN_PULLUP_10K);
 
-    // Register PC4 as Level_Low wake-up source from deep retention sleep
-    cpu_set_gpio_wakeup(GPIO_NFC_IRQ, Level_Low, 1);
-
-    if (is_cold_boot || !fm11_present) {
+    if (is_cold_boot || !fm11_probed) {
         WaitMs(5); // Power stabilization delay
 
+        fm11_present = false;
         nfc_cs_low();
         // Probe I2C address: Test 0xAE (factory), 0xA0 (ATC), then scan
         if (nfc_i2c_probe_addr(0xAE)) {
@@ -322,6 +358,7 @@ bool nfc_fm11nc08_init(bool is_cold_boot) {
             }
         }
         nfc_cs_high();
+        fm11_probed = true;
 
 #if NFC_ENABLE_DIAG
         nfc_diag.present = fm11_present;
@@ -330,6 +367,8 @@ bool nfc_fm11nc08_init(bool is_cold_boot) {
 #endif
 
         if (fm11_present) {
+            // Register NFC_IRQ as Level_Low wake-up source only when chip is present
+            cpu_set_gpio_wakeup(GPIO_NFC_IRQ, Level_Low, 1);
 #if NFC_ENABLE_DIAG
             // Read hardware vendor ID byte from EEPROM 0x0000
             nfc_read_eeprom(0x0000, &nfc_diag.vendor_id, 1);
@@ -433,18 +472,21 @@ bool nfc_fm11nc08_init(bool is_cold_boot) {
 #endif
         } else {
             NFC_UPDATE_DIAG_STR();
-            nfc_uart_printf("[NFC] Init FAIL: chip not detected on I2C\n");
-            // Visual feedback: 3 red blinks indicate I2C communication failed
+            nfc_uart_printf("[NFC] Not detected on I2C; disabling NFC wakeup/pins\n");
+            nfc_disable_pins_low_leakage();
+#if (BOARD != BOARD_ENDOR_0750)
+            // Visual feedback: 3 red blinks indicate I2C communication failed on mandatory-NFC boards
             led_blink(LED_RED, 150);
             WaitMs(100);
             led_blink(LED_RED, 150);
             WaitMs(100);
             led_blink(LED_RED, 150);
+#endif
         }
-    } else {
+    } else if (fm11_present) {
         // Deep retention sleep wake:
         // FM11NC08 is continuously powered from VDD and retains its register configuration.
-        // No redundant I2C transactions needed.
+        cpu_set_gpio_wakeup(GPIO_NFC_IRQ, Level_Low, 1);
     }
 
     return fm11_present;
@@ -1240,6 +1282,7 @@ bool nfc_fm11nc08_poll(nfc_cmd_t *cmd) {
 #include "mode_switch.h"
 
 void nfc_process_events(void) {
+    if (!fm11_present) return;
     nfc_cmd_t cmd;
     if (nfc_fm11nc08_poll(&cmd)) {
         switch (cmd.type) {

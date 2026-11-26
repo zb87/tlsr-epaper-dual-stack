@@ -69,7 +69,7 @@ bool log_ring_get_entry(uint16_t seq, ble_log_entry_t *out_entry) {
     return true;
 }
 
-#if (BOARD != BOARD_ENDOR_0420)
+#if !UART_PB1_CONFLICT
 // Hardware UART Non-DMA Mode on TLSR8258
 // System clock = 24 MHz Crystal
 // 115200 baud: div = 12, bwpc = 15 -> 24000000 / ((12+1)*(15+1)) = 115384.6 baud (0.16% error)

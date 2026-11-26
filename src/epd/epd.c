@@ -8,10 +8,13 @@
 #include "epd_bwr_420.h"
 #elif (BOARD == BOARD_ENDOR_0420)
 #include "epd_bwr_420_ssd1683.h"
+#elif (BOARD == BOARD_ENDOR_0750)
+#include "epd_bwr_750.h"
 #else
 #include "epd_bwr_213.h"
 #endif
 #include "epd_slots.h"
+#include "ext_flash.h"
 #include "led.h"
 #include "debug_uart.h"
 
@@ -34,6 +37,8 @@ uint8_t epd_read_temp(void) {
     epd_temperature = EPD_BWR_420_read_temp();
 #elif (BOARD == BOARD_ENDOR_0420)
     epd_temperature = EPD_SSD1683_read_temp();
+#elif (BOARD == BOARD_ENDOR_0750)
+    epd_temperature = EPD_BWR_750_read_temp();
 #else
     epd_temperature = EPD_BWR_213_read_temp();
 #endif
@@ -45,6 +50,8 @@ void epd_set_sleep(void) {
     EPD_BWR_420_set_sleep();
 #elif (BOARD == BOARD_ENDOR_0420)
     EPD_SSD1683_set_sleep();
+#elif (BOARD == BOARD_ENDOR_0750)
+    EPD_BWR_750_set_sleep();
 #else
     // Exit partial window mode if active
     EPD_WriteCmd(0x92); // PTOUT: Partial Out
@@ -86,8 +93,13 @@ uint8_t epd_state_handler(void) {
             DEBUG_LOG("EPD", "Refresh DONE in %u ms (BUSY idle). Sleeping panel.", (unsigned int)elapsed_ms);
             debug_uart_flush();
             epd_set_sleep();
+#if EPD_IS_750
+        } else if (elapsed_32k >= (45 * 32000)) {
+            DEBUG_LOG("EPD", "Refresh TIMEOUT (>45s)! Forcing panel sleep.");
+#else
         } else if (elapsed_32k >= (35 * 32000)) {
             DEBUG_LOG("EPD", "Refresh TIMEOUT (>35s)! Forcing panel sleep.");
+#endif
             debug_uart_flush();
             epd_set_sleep();
         }
@@ -157,7 +169,7 @@ static bool delta2d_read_line(delta2d_line_decoder_t *dec, uint8_t *dst_line) {
                         uint16_t rem = s->stream_len - s->stream_idx;
                         if (rem == 0) { dst_line[d_idx + i] = 0; continue; }
                         uint8_t chunk = (rem > sizeof(s->buf)) ? sizeof(s->buf) : (uint8_t)rem;
-                        flash_read(s->flash_addr + s->stream_idx, chunk, s->buf);
+                        epd_slot_storage_read(s->flash_addr + s->stream_idx, chunk, s->buf);
                         s->stream_idx += chunk;
                         s->buf_idx = 0;
                         s->buf_len = chunk;
@@ -178,7 +190,7 @@ static bool delta2d_read_line(delta2d_line_decoder_t *dec, uint8_t *dst_line) {
                 break;
             }
             uint8_t chunk = (rem > sizeof(s->buf)) ? sizeof(s->buf) : (uint8_t)rem;
-            flash_read(s->flash_addr + s->stream_idx, chunk, s->buf);
+            epd_slot_storage_read(s->flash_addr + s->stream_idx, chunk, s->buf);
             s->stream_idx += chunk;
             s->buf_idx = 0;
             s->buf_len = chunk;
@@ -195,7 +207,7 @@ static bool delta2d_read_line(delta2d_line_decoder_t *dec, uint8_t *dst_line) {
                 uint16_t rem = s->stream_len - s->stream_idx;
                 if (rem > 0) {
                     uint8_t chunk = (rem > sizeof(s->buf)) ? sizeof(s->buf) : (uint8_t)rem;
-                    flash_read(s->flash_addr + s->stream_idx, chunk, s->buf);
+                    epd_slot_storage_read(s->flash_addr + s->stream_idx, chunk, s->buf);
                     s->stream_idx += chunk;
                     s->buf_idx = 0;
                     s->buf_len = chunk;
@@ -261,6 +273,12 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
         epd_render_info_slot();
     }
     EPD_SSD1683_start_dtm1();
+#elif (BOARD == BOARD_ENDOR_0750)
+    EPD_BWR_750_init();
+    if (slot_idx == EPD_SLOT_INFO) {
+        epd_render_info_slot();
+    }
+    EPD_BWR_750_start_dtm1();
 #else
     gpio_write(GPIO_EPD_RESET, 0);
     epd_delay_ms(10);
@@ -305,7 +323,10 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
     if (slot_idx >= EPD_USER_SLOT_START && slot_idx < (EPD_USER_SLOT_START + EPD_USER_SLOT_COUNT)) {
         slot_addr = epd_get_slot_flash_address(slot_idx);
         if (slot_addr != 0) {
-            flash_read(slot_addr, sizeof(header), (uint8_t *)&header);
+#if EXT_FLASH_ENABLED
+            ext_flash_wake();
+#endif
+            epd_slot_storage_read(slot_addr, sizeof(header), (uint8_t *)&header);
             if (header.magic == EPD_COMP_MAGIC) {
                 is_compressed = true;
             }
@@ -331,7 +352,11 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
         }
 
         for (uint16_t line = 0; line < EPD_TOTAL_LINES; line++) {
+#if EPD_IS_750
+            if ((line % 5) == 0) {
+#else
             if ((line % 10) == 0) {
+#endif
                 ble_display_poll();
             }
             delta2d_read_line(&dec_bw, line_bw);
@@ -356,6 +381,8 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
                 }
 #if (BOARD == BOARD_HANSHOW_E31HA)
                 if (j == 15) dtm1 |= 0x3F; // Pad bits high for 122 vertical lines
+#elif (BOARD == BOARD_ENDOR_0750)
+                dtm1 = ~dtm1; // UC8179 0x50=0x20,0x07 (DDX=00): 0 = White, 1 = Black
 #endif
                 EPD_WriteData(dtm1);
             }
@@ -368,6 +395,8 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
         EPD_BWR_420_start_dtm2();
 #elif (BOARD == BOARD_ENDOR_0420)
         EPD_SSD1683_start_dtm2();
+#elif (BOARD == BOARD_ENDOR_0750)
+        EPD_BWR_750_start_dtm2();
 #else
         EPD_WriteCmd(0x13);
 #endif
@@ -377,7 +406,11 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
         }
 
         for (uint16_t line = 0; line < EPD_TOTAL_LINES; line++) {
+#if EPD_IS_750
+            if ((line % 5) == 0) {
+#else
             if ((line % 10) == 0) {
+#endif
                 ble_display_poll();
             }
             delta2d_read_line(&dec_bw, line_bw);
@@ -402,8 +435,8 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
                 }
 #if (BOARD == BOARD_HANSHOW_E31HA)
                 if (j == 15) dtm2 &= 0xC0; // Pad bits cleared for 122 vertical lines
-#elif (BOARD == BOARD_HANSHOW_E31PA)
-                dtm2 = ~dtm2; // UC8176 4.2" BWR polarity: 0 = Red, 1 = Non-red
+#elif (BOARD == BOARD_HANSHOW_E31PA) || (BOARD == BOARD_ENDOR_0750)
+                dtm2 = ~dtm2; // UC8176 / UC8179 (CDI 0x50=0x20,0x07) BWR polarity: 0 = Red, 1 = Non-red
 #endif
                 EPD_WriteData(dtm2);
             }
@@ -415,9 +448,9 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
         uint8_t chunk_bw[256];
         uint8_t chunk_red[256];
 
-        for (uint16_t off = 0; off < EPD_PLANE_SIZE; off += sizeof(chunk_bw)) {
+        for (uint32_t off = 0; off < EPD_PLANE_SIZE; off += sizeof(chunk_bw)) {
             ble_display_poll();
-            uint16_t chunk_len = (off + sizeof(chunk_bw) > EPD_PLANE_SIZE) ? (EPD_PLANE_SIZE - off) : sizeof(chunk_bw);
+            uint16_t chunk_len = (off + sizeof(chunk_bw) > EPD_PLANE_SIZE) ? (uint16_t)(EPD_PLANE_SIZE - off) : sizeof(chunk_bw);
 
             if (slot_idx == EPD_SLOT_INFO) {
                 for (uint16_t j = 0; j < chunk_len; j++) {
@@ -445,6 +478,8 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
                 }
 #if (BOARD == BOARD_HANSHOW_E31HA)
                 if (((off + j) & 0x0F) == 15) dtm1 |= 0x3F;
+#elif (BOARD == BOARD_ENDOR_0750)
+                dtm1 = ~dtm1; // UC8179 0x50=0x20,0x07 (DDX=00): 0 = White, 1 = Black
 #endif
                 EPD_WriteData(dtm1);
             }
@@ -455,15 +490,17 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
         EPD_BWR_420_start_dtm2();
 #elif (BOARD == BOARD_ENDOR_0420)
         EPD_SSD1683_start_dtm2();
+#elif (BOARD == BOARD_ENDOR_0750)
+        EPD_BWR_750_start_dtm2();
 #else
         EPD_WriteCmd(0x13);
 #endif
 
-        for (uint16_t off = 0; off < EPD_PLANE_SIZE; off += sizeof(chunk_bw)) {
+        for (uint32_t off = 0; off < EPD_PLANE_SIZE; off += sizeof(chunk_bw)) {
             ble_display_poll();
-            uint16_t chunk_len = (off + sizeof(chunk_bw) > EPD_PLANE_SIZE) ? (EPD_PLANE_SIZE - off) : sizeof(chunk_bw);
+            uint16_t chunk_len = (off + sizeof(chunk_bw) > EPD_PLANE_SIZE) ? (uint16_t)(EPD_PLANE_SIZE - off) : sizeof(chunk_bw);
 
-            if (slot_idx == EPD_SLOT_INFO) {
+            if (slot_idx == EPD_SLOT_INFO && (style == STYLE_RW_STANDARD || style == STYLE_RW_INVERTED)) {
                 for (uint16_t j = 0; j < chunk_len; j++) {
                     chunk_bw[j] = epd_get_info_pixel_byte(off + j);
                 }
@@ -488,13 +525,18 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
                 }
 #if (BOARD == BOARD_HANSHOW_E31HA)
                 if (((off + j) & 0x0F) == 15) dtm2 &= 0xC0;
-#elif (BOARD == BOARD_HANSHOW_E31PA)
+#elif (BOARD == BOARD_HANSHOW_E31PA) || (BOARD == BOARD_ENDOR_0750)
                 dtm2 = ~dtm2;
 #endif
                 EPD_WriteData(dtm2);
             }
         }
     }
+
+#if EXT_FLASH_ENABLED
+    // Ensure external flash returns to Deep Power-Down before long EPD refresh
+    ext_flash_sleep();
+#endif
 
     // -------------------------------------------------------------------------
     // Trigger Display Refresh
@@ -503,6 +545,8 @@ void epd_display_slot(uint8_t slot_idx, uint8_t style) {
     EPD_BWR_420_refresh();
 #elif (BOARD == BOARD_ENDOR_0420)
     EPD_SSD1683_refresh();
+#elif (BOARD == BOARD_ENDOR_0750)
+    EPD_BWR_750_refresh();
 #else
     EPD_WriteCmd(0x12); // DRF
     unsigned long t0 = clock_time();

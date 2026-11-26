@@ -23,7 +23,10 @@ typedef struct __attribute__((packed)) {
 void epd_render_info_slot(void);
 
 // Returns pixel byte for Info screen at byte offset 0..EPD_PLANE_SIZE-1
-uint8_t epd_get_info_pixel_byte(uint16_t byte_idx);
+uint8_t epd_get_info_pixel_byte(uint32_t byte_idx);
+
+// Read bytes from active slot storage medium (internal flash or external SPI flash)
+void epd_slot_storage_read(uint32_t addr, uint32_t len, uint8_t *buf);
 
 // Get base flash address for a given user slot index (1..EPD_USER_SLOT_COUNT)
 uint32_t epd_get_slot_flash_address(uint8_t slot_idx);
@@ -33,9 +36,9 @@ bool epd_get_slot_header(uint8_t slot_idx, epd_slot_header_t *header);
 
 // Slot operations
 void epd_prepare_slot_upload(uint8_t slot_idx, uint8_t plane);
-bool epd_write_slot_chunk(uint8_t slot_idx, uint8_t plane, uint16_t offset, const uint8_t *data, uint16_t len);
+bool epd_write_slot_chunk(uint8_t slot_idx, uint8_t plane, uint32_t offset, const uint8_t *data, uint16_t len);
 void epd_commit_slot_upload(uint8_t slot_idx, uint8_t has_red_plane, uint8_t auto_display);
 void epd_erase_slot(uint8_t slot_idx);
-uint8_t epd_read_slot_chunk(uint8_t slot_idx, uint8_t plane, uint16_t offset, uint8_t *dst, uint8_t len);
+uint8_t epd_read_slot_chunk(uint8_t slot_idx, uint8_t plane, uint32_t offset, uint8_t *dst, uint8_t len);
 
 #endif // _EPD_SLOTS_H_

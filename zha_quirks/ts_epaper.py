@@ -1,10 +1,12 @@
-"""Custom ZHA Quirk for Hanshow Stellar E-Paper Dual-Stack (Zigbee 3.0 + BLE).
+"""Custom ZHA Quirk for TLSR E-Paper Dual-Stack (Zigbee 3.0 + BLE).
 
 Devices:
 - Hanshow Stellar-M3N@ / E31HA (Telink TLSR8258 + FM11NC08 NFC + 2.13" BWR E-Paper Display, 250x122)
 - Hanshow Stellar-XL3N@ / E31PA (Telink TLSR8258 + FM11NC08 NFC + 4.2" BWR E-Paper Display, 400x300)
+- BLOZI Endor 0420 (Telink TLSR8359 + 4.2" BWR E-Paper Display, 400x300)
+- BLOZI Endor 0750 (Telink TLSR8359 + GD25Q16EQ + optional FM11NC08I NFC + 7.5" BWR E-Paper Display, 800x480)
 Manufacturer: ZB-DIY
-Models: TLSR-M3Na-E31HA, TLSR-XL3Na-E31PA
+Models: TLSR-M3Na-E31HA, TLSR-XL3Na-E31PA, TLSR-Endor-0420, TLSR-Endor-0750
 """
 
 from __future__ import annotations
@@ -317,5 +319,8 @@ _register_epaper_quirk("TLSR-M3Na-E31HA", ActiveSlotM3)
 # Register Stellar-XL3N@ / E31PA Quirk (4.2" BWR, slots 0..7)
 _register_epaper_quirk("TLSR-XL3Na-E31PA", ActiveSlotXL3)
 
-# Register BLOZI Endor 0420 Quirk (4.2" BWR, slots 0..7)
+# Register BLOZI Endor 0420 Quirk (4.2" BWR, slots 0..5)
 _register_epaper_quirk("TLSR-Endor-0420", ActiveSlotXL3)
+
+# Register BLOZI Endor 0750 Quirk (7.5" BWR, slots 0..9)
+_register_epaper_quirk("TLSR-Endor-0750", ActiveSlotM3)

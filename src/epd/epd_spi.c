@@ -38,6 +38,9 @@ void EPD_init_pins(void) {
     gpio_set_output_en(GPIO_EPD_CLK, 1);
     gpio_set_input_en(GPIO_EPD_CLK, 0);
     gpio_setup_up_down_resistor(GPIO_EPD_CLK, PM_PIN_PULLUP_1M);
+#if EPD_IS_750
+    gpio_write(GPIO_EPD_CLK, 0); // SPI Mode 0 idle LOW (matches stock Endor-0750)
+#endif
 
     // MOSI
     gpio_set_func(GPIO_EPD_MOSI, AS_GPIO);
@@ -53,8 +56,10 @@ void EPD_init_pins(void) {
     EPD_POWER_OFF(); // Default OFF (pullup, pin HIGH)
 #endif
 
+#if !EXT_FLASH_ENABLED
     // Clock gating: enable SPI clock only while communicating with EPD
     reg_clk_en0 |= FLD_CLK0_SPI_EN;
+#endif
 }
 
 void EPD_isolate_pins(void) {
@@ -80,8 +85,10 @@ void EPD_isolate_pins(void) {
     gpio_write(GPIO_EPD_CLK, 0);
     gpio_write(GPIO_EPD_MOSI, 0);
 
+#if !EXT_FLASH_ENABLED
     // Clock gating: disable SPI clock during sleep/idle
     reg_clk_en0 &= ~FLD_CLK0_SPI_EN;
+#endif
 }
 
 void EPD_SPI_Write(uint8_t value) {
@@ -100,6 +107,10 @@ void EPD_SPI_Write(uint8_t value) {
             value <<= 1;
             // Raise CLK HIGH
             *p_out |= bit_clk;
+#if EPD_IS_750
+            // Return CLK LOW so every bit is self-contained in SPI Mode 0
+            *p_out &= ~bit_clk;
+#endif
         }
     } else {
         volatile uint8_t *p_clk = &reg_gpio_out(GPIO_EPD_CLK);
@@ -113,6 +124,9 @@ void EPD_SPI_Write(uint8_t value) {
             }
             value <<= 1;
             *p_clk |= bit_clk;
+#if EPD_IS_750
+            *p_clk &= ~bit_clk;
+#endif
         }
     }
 }
@@ -130,6 +144,9 @@ uint8_t EPD_SPI_read(void) {
         gpio_write(GPIO_EPD_CLK, 1);
         value = (value << 1) | (gpio_read(GPIO_EPD_MOSI) ? 1 : 0);
     }
+#if EPD_IS_750
+    gpio_write(GPIO_EPD_CLK, 0);
+#endif
 
     gpio_set_output_en(GPIO_EPD_MOSI, 1);
     gpio_set_input_en(GPIO_EPD_MOSI, 0);
@@ -138,17 +155,32 @@ uint8_t EPD_SPI_read(void) {
 }
 
 void EPD_WriteCmd(uint8_t cmd) {
+#if EPD_IS_750
+    // Stock Endor-0750 pulses CS HIGH->LOW at command start and leaves CS=0, CLK=0 for following data
+    gpio_write(GPIO_EPD_CS, 1);
+    gpio_write(GPIO_EPD_CS, 0);
+    gpio_write(GPIO_EPD_CLK, 0);
+    EPD_ENABLE_WRITE_CMD();
+    EPD_SPI_Write(cmd);
+#else
     gpio_write(GPIO_EPD_CS, 0);
     EPD_ENABLE_WRITE_CMD();
     EPD_SPI_Write(cmd);
     gpio_write(GPIO_EPD_CS, 1);
+#endif
 }
 
 void EPD_WriteData(uint8_t data) {
+#if EPD_IS_750
+    gpio_write(GPIO_EPD_CLK, 0);
+    EPD_ENABLE_WRITE_DATA();
+    EPD_SPI_Write(data);
+#else
     gpio_write(GPIO_EPD_CS, 0);
     EPD_ENABLE_WRITE_DATA();
     EPD_SPI_Write(data);
     gpio_write(GPIO_EPD_CS, 1);
+#endif
 }
 
 void epd_delay_ms(uint32_t ms) {

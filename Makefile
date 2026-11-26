@@ -140,7 +140,7 @@ SIZEDUMMY := sizedummy
 
 default: all
 
-all: m3na xl3na endor0420
+all: m3na xl3na endor0420 endor0750
 
 m3na:
 	@$(MAKE) build-target BOARD=BOARD_HANSHOW_E31HA PROJECT_NAME=tlsr-epaper-m3na ZNAME="Hanshow:E31HA-dual"
@@ -150,6 +150,9 @@ xl3na:
 
 endor0420:
 	@$(MAKE) build-target BOARD=BOARD_ENDOR_0420 PROJECT_NAME=tlsr-epaper-endor0420 ZNAME="Endor:0420-dual"
+
+endor0750:
+	@$(MAKE) build-target BOARD=BOARD_ENDOR_0750 PROJECT_NAME=tlsr-epaper-endor0750 ZNAME="Endor:0750-dual"
 
 build-target: pre-build main-build
 
@@ -197,5 +200,5 @@ pre-build:
 
 secondary-outputs: $(BIN_FILE) $(OTA_FILE) $(LST_FILE) $(SIZEDUMMY)
 
-.PHONY: all default m3na xl3na endor0420 build-target clean pre-build secondary-outputs
+.PHONY: all default m3na xl3na endor0420 endor0750 build-target clean pre-build secondary-outputs
 .SECONDARY: main-build

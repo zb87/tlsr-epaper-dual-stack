@@ -308,6 +308,7 @@
                         <option value="TLSR-M3Na-E31HA" selected>Stellar-M3N@ / E31HA (2.13" 250x122)</option>
                         <option value="TLSR-XL3Na-E31PA">Stellar-XL3N@ / E31PA (4.2" 400x300)</option>
                         <option value="TLSR-Endor-0420">BLOZI Endor 0420 (4.2" 400x300)</option>
+                        <option value="TLSR-Endor-0750">BLOZI Endor 0750 (7.5" 800x480)</option>
                     </select>
                 </div>
                 <label id="lblAllDevices" style="font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; cursor: pointer;">
@@ -833,6 +834,54 @@
                     { id: 4, label: 'Slot 4 (User Image 4)' },
                     { id: 5, label: 'Slot 5 (Blank White)' },
                 ]
+            },
+            'TLSR-Endor-0750': {
+                name: 'BLOZI Endor 0750',
+                desc: 'BLOZI Endor 0750 (Dual Zigbee 3.0 + BLE 5.0 Stack) - 7.5" 800x480 BWR (UC8179, 2MB Ext Flash)',
+                width: 800,
+                height: 480,
+                planeSize: 48000,
+                lineBytes: 100,
+                totalLines: 480,
+                maxSlotSize: 131072,
+                canvasStyle: 'max-width: 800px; width: 100%; height: auto; aspect-ratio: 800/480;',
+                previewText: 'Display preview: 800 × 480 pixels (native 7.5" display)',
+                studioTitle: '🎨 Tri-Color E-Paper Image Studio (800 × 480)',
+                fwFile: 'tlsr-epaper-endor0750.bin',
+                slots: [
+                    { id: 0, name: 'Slot 0', desc: 'Info Page' },
+                    { id: 1, name: 'Slot 1', desc: 'User 1 (128KB)' },
+                    { id: 2, name: 'Slot 2', desc: 'User 2 (128KB)' },
+                    { id: 3, name: 'Slot 3', desc: 'User 3 (128KB)' },
+                    { id: 4, name: 'Slot 4', desc: 'User 4 (128KB)' },
+                    { id: 5, name: 'Slot 5', desc: 'User 5 (128KB)' },
+                    { id: 6, name: 'Slot 6', desc: 'User 6 (128KB)' },
+                    { id: 7, name: 'Slot 7', desc: 'User 7 (128KB)' },
+                    { id: 8, name: 'Slot 8', desc: 'User 8 (128KB)' },
+                    { id: 9, name: 'Slot 9', desc: 'Blank (White)' },
+                ],
+                uploadSlots: [
+                    { id: 1, label: 'Slot 1 (User Image 1, 128KB)' },
+                    { id: 2, label: 'Slot 2 (User Image 2, 128KB)' },
+                    { id: 3, label: 'Slot 3 (User Image 3, 128KB)' },
+                    { id: 4, label: 'Slot 4 (User Image 4, 128KB)' },
+                    { id: 5, label: 'Slot 5 (User Image 5, 128KB)' },
+                    { id: 6, label: 'Slot 6 (User Image 6, 128KB)' },
+                    { id: 7, label: 'Slot 7 (User Image 7, 128KB)' },
+                    { id: 8, label: 'Slot 8 (User Image 8, 128KB)' },
+                ],
+                fetchSlots: [
+                    { id: 0, label: 'Slot 0 (Info Page)' },
+                    { id: 1, label: 'Slot 1 (User Image 1)' },
+                    { id: 2, label: 'Slot 2 (User Image 2)' },
+                    { id: 3, label: 'Slot 3 (User Image 3)' },
+                    { id: 4, label: 'Slot 4 (User Image 4)' },
+                    { id: 5, label: 'Slot 5 (User Image 5)' },
+                    { id: 6, label: 'Slot 6 (User Image 6)' },
+                    { id: 7, label: 'Slot 7 (User Image 7)' },
+                    { id: 8, label: 'Slot 8 (User Image 8)' },
+                    { id: 9, label: 'Slot 9 (Blank White)' },
+                ]
             }
         };
 
@@ -1032,6 +1081,8 @@
                     log(`Detected hardware model from device: "${modelStr}"`);
                     if (modelStr.includes('XL3') || modelStr.includes('E31PA')) {
                         setDeviceModel('TLSR-XL3Na-E31PA');
+                    } else if (modelStr.includes('0750')) {
+                        setDeviceModel('TLSR-Endor-0750');
                     } else if (modelStr.includes('Endor') || modelStr.includes('0420')) {
                         setDeviceModel('TLSR-Endor-0420');
                     } else if (modelStr.includes('M3') || modelStr.includes('E31HA')) {
@@ -1864,13 +1915,13 @@
             const redPlane = new Uint8Array(planeSize).fill(0x00); // 1 = Red, 0 = Non-red
             let hasRed = false;
 
-            if (currentModel === 'TLSR-XL3Na-E31PA' || currentModel === 'TLSR-Endor-0420') {
-                // Native horizontal 400x300, 50 bytes per line (MSB on the left)
+            if (currentModel === 'TLSR-XL3Na-E31PA' || currentModel === 'TLSR-Endor-0420' || currentModel === 'TLSR-Endor-0750') {
+                // Native horizontal raster (400x300 or 800x480), cfg.lineBytes bytes per line (MSB on the left)
                 for (let y = 0; y < h; y++) {
                     for (let x = 0; x < w; x++) {
                         const idx = (y * w + x) * 4;
                         const r = data[idx], g = data[idx+1], b = data[idx+2];
-                        const byteIdx = y * 50 + (x >> 3);
+                        const byteIdx = y * cfg.lineBytes + (x >> 3);
                         const bitMask = 0x80 >> (x & 7);
 
                         const isRed = (r > 150 && g < 100 && b < 100) || (r > 120 && (r - g) > 40 && (r - b) > 40);
@@ -1932,10 +1983,10 @@
             const imgData = ctx.createImageData(w, h);
             const d = imgData.data;
 
-            if (currentModel === 'TLSR-XL3Na-E31PA' || currentModel === 'TLSR-Endor-0420') {
+            if (currentModel === 'TLSR-XL3Na-E31PA' || currentModel === 'TLSR-Endor-0420' || currentModel === 'TLSR-Endor-0750') {
                 for (let y = 0; y < h; y++) {
                     for (let x = 0; x < w; x++) {
-                        const byteIdx = y * 50 + (x >> 3);
+                        const byteIdx = y * cfg.lineBytes + (x >> 3);
                         const bitMask = 0x80 >> (x & 7);
                         const isRed = redPlane && ((redPlane[byteIdx] & bitMask) !== 0);
                         const isWhite = (bwPlane[byteIdx] & bitMask) !== 0;
@@ -2225,7 +2276,7 @@
                     if (isFlowSync || isLastBlock) {
                         const telem = await safeReadUploadTelemetry();
                         if (telem && telem.byteLength >= 3) {
-                            const confirmedOff = telem.getUint16(0, true);
+                            const confirmedOff = telem.getUint16(0, true) | (telem.byteLength >= 4 ? (telem.getUint8(3) << 16) : 0);
                             const errCode = telem.getUint8(2);
                             const confirmedBlk = Math.floor(confirmedOff / 16);
 
@@ -2320,7 +2371,7 @@
                         if (respSlot !== slot) return;
 
                         resetTimeout();
-                        const offset = val[3] | (val[4] << 8);
+                        const offset = val[3] | (val[4] << 8) | (((val[2] >> 4) & 0x0F) << 16);
                         const len = val[5];
 
                         if (len === 0) {

@@ -34,6 +34,7 @@
 #include "epd_spi.h"
 #include "epd_slots.h"
 #include "epd_prototype.h"
+#include "ext_flash.h"
 #include "nfc_fm11nc08.h"
 #include "ble_app.h"
 #include "led.h"
@@ -212,6 +213,9 @@ static const u8 my_ManStr[] = {"ZB-DIY"};
 #elif BOARD == BOARD_ENDOR_0420
 static const u8 my_ModelStr[] = {"TLSR-Endor-0420"};
 static const u8 my_ManStr[] = {"ZB-DIY"};
+#elif BOARD == BOARD_ENDOR_0750
+static const u8 my_ModelStr[] = {"TLSR-Endor-0750"};
+static const u8 my_ManStr[] = {"ZB-DIY"};
 #elif BOARD == BOARD_HANSHOW_E31HA
 static const u8 my_ModelStr[] = {"TLSR-M3Na-E31HA"};
 static const u8 my_ManStr[] = {"ZB-DIY"};
@@ -306,12 +310,20 @@ static u16 epdCmdCCC = 0;
 static u8  my_epdDataVal = 0;
 
 typedef struct __attribute__((packed)) {
-    u16 confirmed_offset; // Confirmed bytes written to RAM (0 to 4000)
-    u8  error_code;       // 0=OK, 1=Loss/out-of-order, 2=CRC error
-    u8  reserved;
+    u16 confirmed_offset;    // Low 16 bits of confirmed bytes written
+    u8  error_code;          // 0=OK, 1=Loss/out-of-order, 2=CRC error
+    u8  confirmed_offset_hi; // Bits 16..23 of confirmed bytes (supports >64 KB slots)
 } epd_upload_telemetry_t;
 
 static epd_upload_telemetry_t s_upload_telemetry = {0};
+static uint32_t s_stream_confirmed_bytes = 0;
+static uint32_t s_stream_flushed_bytes = 0;
+
+static inline void epd_stream_set_confirmed(uint32_t bytes) {
+    s_stream_confirmed_bytes = bytes;
+    s_upload_telemetry.confirmed_offset = (u16)(bytes & 0xFFFF);
+    s_upload_telemetry.confirmed_offset_hi = (u8)((bytes >> 16) & 0xFF);
+}
 
 extern void flash_unlock(void);
 extern void flash_write_page(unsigned long addr, unsigned long len, unsigned char *buf);
@@ -333,7 +345,7 @@ typedef struct {
     uint8_t active;
     uint8_t slot;
     uint8_t plane;
-    uint16_t offset;
+    uint32_t offset;
 } epd_stream_fetch_t;
 
 static epd_stream_fetch_t s_fetch = {0};
@@ -442,7 +454,7 @@ static int epd_ble_data_write(void *p) {
             return 0;
         }
 
-        u16 exp_blk = s_upload_telemetry.confirmed_offset / 16;
+        u16 exp_blk = (u16)(s_stream_confirmed_bytes / 16);
         if (block_idx < exp_blk) {
             // Duplicate retransmission; ignore safely
             return 0;
@@ -452,11 +464,27 @@ static int epd_ble_data_write(void *p) {
             return 0;
         }
 
-        uint16_t offset = block_idx * 16;
-        if (offset + 16 <= sizeof(s_ota_cache)) {
-            memcpy(&s_ota_cache[offset], &payload[2], 16);
-            s_upload_telemetry.confirmed_offset = offset + 16;
+        uint32_t abs_offset = (uint32_t)block_idx * 16;
+#if EXT_FLASH_ENABLED
+        uint32_t max_len = (s_stream_upload_active == 1) ? EPD_SLOT_SIZE : sizeof(s_ota_cache);
+#else
+        uint32_t max_len = sizeof(s_ota_cache);
+#endif
+        uint32_t buf_off = abs_offset - s_stream_flushed_bytes;
+        if (abs_offset + 16 <= max_len && buf_off + 16 <= sizeof(s_ota_cache)) {
+            memcpy(&s_ota_cache[buf_off], &payload[2], 16);
+            epd_stream_set_confirmed(abs_offset + 16);
             s_upload_telemetry.error_code = 0;
+
+#if EXT_FLASH_ENABLED
+            if (s_stream_upload_active == 1 && (s_stream_confirmed_bytes - s_stream_flushed_bytes) >= 4096) {
+                uint32_t addr = epd_get_slot_flash_address(s_stream_slot);
+                if (addr != 0) {
+                    ext_flash_write(addr + s_stream_flushed_bytes, 4096, s_ota_cache);
+                }
+                s_stream_flushed_bytes += 4096;
+            }
+#endif
         } else {
             s_upload_telemetry.error_code = 3; // Buffer overflow
         }
@@ -465,9 +493,9 @@ static int epd_ble_data_write(void *p) {
         uint16_t offset = payload[0] | (payload[1] << 8);
         const uint8_t *chunk_data = &payload[2];
         uint16_t chunk_len = len - 2;
-        if (offset + chunk_len <= sizeof(s_ota_cache)) {
+        if (s_stream_flushed_bytes == 0 && offset + chunk_len <= sizeof(s_ota_cache)) {
             memcpy(&s_ota_cache[offset], chunk_data, chunk_len);
-            s_upload_telemetry.confirmed_offset = offset + chunk_len;
+            epd_stream_set_confirmed(offset + chunk_len);
             s_upload_telemetry.error_code = 0;
         } else {
             s_upload_telemetry.error_code = 3; // Buffer overflow
@@ -528,7 +556,8 @@ static int epd_ble_cmd_write(void *p) {
             else s_stream_has_red = 1;
             s_stream_upload_active = 1;
             s_stream_activity_tick = clock_time() | 1;
-            s_upload_telemetry.confirmed_offset = 0;
+            epd_stream_set_confirmed(0);
+            s_stream_flushed_bytes = 0;
             s_upload_telemetry.error_code = 0;
             epd_prepare_slot_upload(s_stream_slot, s_stream_plane);
             // Ultra-fast connection parameters (10ms interval, 0 latency, matching OTA)
@@ -547,6 +576,19 @@ static int epd_ble_cmd_write(void *p) {
             uint8_t has_red = s_stream_has_red;
             if (len >= 3) has_red = payload[2] ? 1 : 0;
 
+#if EXT_FLASH_ENABLED
+            uint32_t rem = (s_stream_confirmed_bytes > s_stream_flushed_bytes)
+                               ? (s_stream_confirmed_bytes - s_stream_flushed_bytes)
+                               : 0;
+            if (rem > 0 && rem <= sizeof(s_ota_cache)) {
+                uint32_t addr = epd_get_slot_flash_address(s_stream_slot);
+                if (addr != 0) {
+                    ext_flash_write(addr + s_stream_flushed_bytes, rem, s_ota_cache);
+                    s_stream_flushed_bytes += rem;
+                }
+            }
+            ext_flash_sleep();
+#else
             // Commit RAM buffer to flash in 256-byte page writes
             uint16_t total_bytes = s_upload_telemetry.confirmed_offset;
             if (total_bytes > 0 && total_bytes <= sizeof(s_ota_cache)) {
@@ -563,6 +605,7 @@ static int epd_ble_cmd_write(void *p) {
                     }
                 }
             }
+#endif
 
             epd_commit_slot_upload(s_stream_slot, has_red, 0);
             if (auto_display) {
@@ -607,6 +650,11 @@ static int epd_ble_cmd_write(void *p) {
                 s_fetch.plane = plane;
                 s_fetch.offset = 0;
                 s_stream_activity_tick = clock_time() | 1;
+#if EXT_FLASH_ENABLED
+                if (slot >= EPD_USER_SLOT_START && slot < (EPD_USER_SLOT_START + EPD_USER_SLOT_COUNT)) {
+                    ext_flash_wake();
+                }
+#endif
                 bls_pm_setManualLatency(0);
                 bls_l2cap_requestConnParamUpdate(10, 16, 0, 800);
                 return 0;
@@ -665,7 +713,8 @@ static int epd_ble_cmd_write(void *p) {
             return 0;
         }
         memset(s_ota_cache, 0xFF, PROTOTYPE_CODE_MAX_SIZE);
-        s_upload_telemetry.confirmed_offset = 0;
+        epd_stream_set_confirmed(0);
+        s_stream_flushed_bytes = 0;
         s_upload_telemetry.error_code = 0;
         DEBUG_LOG("BLE", "Prepare prototype upload (%u B expected)", s_proto_expected_len);
         bls_pm_setManualLatency(0);
@@ -1172,6 +1221,10 @@ void 	ble_remote_terminate(u8 e,u8 *p, int n){ //*p is terminate reason
 	s_fetch.active = 0;
 	s_stream_upload_active = 0;
 	s_stream_activity_tick = 0;
+	s_stream_flushed_bytes = 0;
+#if EXT_FLASH_ENABLED
+	ext_flash_sleep();
+#endif
 #if DEBUG
 	s_log_pull_active = 0;
 	s_log_stream_enabled = 0;
@@ -1218,6 +1271,7 @@ void 	ble_exception_data_abandom(u8 e,u8 *p, int n){
 #endif
 
 static u8 s_suspend_irq_saved = 0;
+static u8 s_in_ble_main_loop = 0;
 
 _attribute_ram_code_
 void	user_set_rf_power (u8 e, u8 *p, int n){
@@ -1366,7 +1420,9 @@ static void suspend_enter_callback(u8 e, u8 *p, int n) {
     debug_uart_flush();
     power_tracker_on_sleep();
 #if NFC_ENABLED
-    cpu_set_gpio_wakeup(GPIO_NFC_IRQ, Level_Low, 1);
+    if (nfc_fm11nc08_is_present()) {
+        cpu_set_gpio_wakeup(GPIO_NFC_IRQ, Level_Low, 1);
+    }
 #endif
     if (epd_is_busy() && EPD_IS_BUSY()) {
         cpu_set_gpio_wakeup(GPIO_EPD_BUSY, EPD_BUSY_WAKEUP_LEVEL, 1);
@@ -1392,7 +1448,7 @@ static u8 app_ble_pm_condition(void) {
 		return 0;
 	}
 #if NFC_ENABLED
-	if (nfc_fm11nc08_is_active() || !gpio_read(GPIO_NFC_IRQ)) {
+	if (nfc_fm11nc08_is_present() && (nfc_fm11nc08_is_active() || !gpio_read(GPIO_NFC_IRQ))) {
 		return 0;
 	}
 #endif
@@ -1575,6 +1631,7 @@ static inline void blc_pm_select_internal_32k_crystal(void) {
 
 void user_ble_init(bool isRetention){
 	s_suspend_irq_saved = 0;
+	s_in_ble_main_loop = 0;
 	s_pending_epd_display = 0;
 	s_epd_display_in_progress = 0;
 	blc_pm_select_internal_32k_crystal();
@@ -1633,11 +1690,11 @@ static void epd_ble_fetch_task(void) {
         return;
     }
 
-    uint16_t total_fetch_size = EPD_PLANE_SIZE;
+    uint32_t total_fetch_size = EPD_PLANE_SIZE;
     if (s_fetch.slot >= EPD_USER_SLOT_START && s_fetch.slot < (EPD_USER_SLOT_START + EPD_USER_SLOT_COUNT)) {
         epd_slot_header_t hdr;
         if (epd_get_slot_header(s_fetch.slot, &hdr)) {
-            total_fetch_size = sizeof(epd_slot_header_t) + hdr.bw_comp_len + hdr.red_comp_len;
+            total_fetch_size = sizeof(epd_slot_header_t) + (uint32_t)hdr.bw_comp_len + (uint32_t)hdr.red_comp_len;
             if (total_fetch_size > EPD_SLOT_SIZE) total_fetch_size = EPD_SLOT_SIZE;
         } else {
             total_fetch_size = sizeof(epd_slot_header_t); // Empty/unprogrammed slot
@@ -1649,13 +1706,16 @@ static void epd_ble_fetch_task(void) {
         uint8_t resp[6];
         resp[0] = 0x86;
         resp[1] = s_fetch.slot;
-        resp[2] = s_fetch.plane;
+        resp[2] = (s_fetch.plane & 0x0F) | (uint8_t)(((total_fetch_size >> 16) & 0x0F) << 4);
         resp[3] = (uint8_t)(total_fetch_size & 0xFF);
         resp[4] = (uint8_t)((total_fetch_size >> 8) & 0xFF);
         resp[5] = 0; // EOF marker
         if (bls_att_pushNotifyData(EPD_CMD_DP_H, resp, 6) == BLE_SUCCESS) {
             s_fetch.active = 0;
             s_stream_activity_tick = 0;
+#if EXT_FLASH_ENABLED
+            ext_flash_sleep();
+#endif
             bls_pm_setManualLatency(19);
             bls_l2cap_requestConnParamUpdate(40, 40, 19, 800);
         }
@@ -1664,13 +1724,13 @@ static void epd_ble_fetch_task(void) {
 
     uint8_t chunk_len = 20;
     if (s_fetch.offset + chunk_len > total_fetch_size) {
-        chunk_len = total_fetch_size - s_fetch.offset;
+        chunk_len = (uint8_t)(total_fetch_size - s_fetch.offset);
     }
 
     uint8_t resp[6 + 20];
     resp[0] = 0x86; // Chunk marker
     resp[1] = s_fetch.slot;
-    resp[2] = s_fetch.plane;
+    resp[2] = (s_fetch.plane & 0x0F) | (uint8_t)(((s_fetch.offset >> 16) & 0x0F) << 4);
     resp[3] = (uint8_t)(s_fetch.offset & 0xFF);
     resp[4] = (uint8_t)((s_fetch.offset >> 8) & 0xFF);
     resp[5] = chunk_len;
@@ -1750,8 +1810,10 @@ static void epd_ble_log_task(void) {
 #endif
 
 void ble_prototype_pump(void) {
-    if (settings.active_mode == DEVICE_MODE_BLE) {
+    if (settings.active_mode == DEVICE_MODE_BLE && !s_in_ble_main_loop) {
+        s_in_ble_main_loop = 1;
         blt_sdk_main_loop();
+        s_in_ble_main_loop = 0;
 #if DEBUG
         epd_ble_log_task();
 #endif
@@ -1759,18 +1821,25 @@ void ble_prototype_pump(void) {
 }
 
 void ble_display_poll(void) {
-    if (device_in_connection_state && settings.active_mode == DEVICE_MODE_BLE) {
+    if (device_in_connection_state && settings.active_mode == DEVICE_MODE_BLE && !s_in_ble_main_loop) {
+        s_in_ble_main_loop = 1;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
         bls_pm_setManualLatency(0);
         blt_sdk_main_loop();
+        s_in_ble_main_loop = 0;
     }
 }
 
 void ble_task(void) {
+	if (s_in_ble_main_loop) {
+		return;
+	}
 	if (s_pending_epd_display || s_epd_display_in_progress) {
 		bls_pm_setManualLatency(0);
 	}
+	s_in_ble_main_loop = 1;
 	blt_sdk_main_loop();
+	s_in_ble_main_loop = 0;
 	epd_ble_fetch_task();
 	epd_ble_log_task();
 
@@ -1783,6 +1852,9 @@ void ble_task(void) {
 		s_fetch.active = 0;
 		s_log_pull_active = 0;
 		s_stream_activity_tick = 0;
+#if EXT_FLASH_ENABLED
+		ext_flash_sleep();
+#endif
 		bls_pm_setManualLatency(19);
 		bls_l2cap_requestConnParamUpdate(40, 40, 19, 800);
 	}
@@ -1793,6 +1865,9 @@ void ble_task(void) {
 		s_stream_upload_active = 0;
 		s_fetch.active = 0;
 		s_stream_activity_tick = 0;
+#if EXT_FLASH_ENABLED
+		ext_flash_sleep();
+#endif
 		bls_pm_setManualLatency(19);
 		bls_l2cap_requestConnParamUpdate(40, 40, 19, 800);
 	}
@@ -1889,8 +1964,10 @@ void ble_pm_task(void) {
 		return;
 	}
 #if NFC_ENABLED
-	if (!nfc_fm11nc08_is_active() && gpio_read(GPIO_NFC_IRQ)) {
-		cpu_set_gpio_wakeup(GPIO_NFC_IRQ, Level_Low, 1);
+	if (!nfc_fm11nc08_is_present() || (!nfc_fm11nc08_is_active() && gpio_read(GPIO_NFC_IRQ))) {
+		if (nfc_fm11nc08_is_present()) {
+			cpu_set_gpio_wakeup(GPIO_NFC_IRQ, Level_Low, 1);
+		}
 #else
 	if (1) {
 #endif

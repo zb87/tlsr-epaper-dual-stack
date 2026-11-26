@@ -16,13 +16,13 @@
 #define IMAGE_OFFSET               APP_IMAGE_ADDR
 
 #define APP_RELEASE                0x10        // app release 1.0
-#define APP_BUILD                  0x08        // app build 08, full version - v1.0.08
+#define APP_BUILD                  0x09        // app build 09, full version - v1.0.09
 #define STACK_RELEASE              0x30        // stack release 3.0
 #define STACK_BUILD                0x01        // stack build 01
 #define HW_VERSION                 0x01
 
 #ifndef BUILD_DATE
-#define BUILD_DATE                 {8, '2','0','2','6','1','1','2','4'}
+#define BUILD_DATE                 {8, '2','0','2','6','1','1','2','6'}
 #endif
 
 #ifndef ZCL_BASIC_DATE_CODE
@@ -50,11 +50,16 @@
 #ifndef BOARD_ENDOR_0420
 #define BOARD_ENDOR_0420           0x43
 #endif
+#ifndef BOARD_ENDOR_0750
+#define BOARD_ENDOR_0750           0x44
+#endif
 
 #if (defined(BOARD) && (BOARD == BOARD_HANSHOW_E31PA))
 #define BOARD_IMAGE_ID             BOARD_HANSHOW_E31PA
 #elif (defined(BOARD) && (BOARD == BOARD_ENDOR_0420))
 #define BOARD_IMAGE_ID             BOARD_ENDOR_0420
+#elif (defined(BOARD) && (BOARD == BOARD_ENDOR_0750))
+#define BOARD_IMAGE_ID             BOARD_ENDOR_0750
 #else
 #define BOARD_IMAGE_ID             BOARD_HANSHOW_E31HA
 #endif
